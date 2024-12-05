@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "leaflet-toolbar": "^0.4.0-alpha.2"
+  }
+}
