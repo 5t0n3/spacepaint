@@ -32,7 +32,8 @@ fn start_syncing(websocket: ws::Ws, address: Option<SocketAddr>) -> impl warp::R
 async fn main() {
     env_logger::init();
 
-    // TODO: warp's log filter
+    // TODO: warp's log filter?
+    // TODO: read from frontend/just serve actual files
     let index_route = warp::path::end().map(|| "index");
     let about_route = warp::path("about").and(warp::path::end()).map(|| "about");
     let ws_route = warp::path("sync")
@@ -40,16 +41,11 @@ async fn main() {
         .and(warp::addr::remote())
         .map(start_syncing);
 
-    // TODO:
-
-    // TODO: schedule repeating task as proof of concept? probably tokio interval + spawn_task
-    // (to represent saving to file)
-
     let all_filters = index_route.or(about_route).or(ws_route);
 
-    let bind_address_str: SocketAddr = std::env::var("SPACEPAINT_ADDR")
+    let bind_address: SocketAddr = std::env::var("SPACEPAINT_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:5000".to_owned())
         .parse()
         .expect("invalid socket addr");
-    warp::serve(all_filters).run(bind_address_str).await
+    warp::serve(all_filters).run(bind_address).await
 }
