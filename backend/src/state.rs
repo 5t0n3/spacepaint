@@ -54,6 +54,7 @@ impl State {
         }
     }
 
+    /// Ticks the map state, and updates the internal copy of that state.
     pub async fn tick_state(&mut self) -> Result<()> {
         self.graphics.apply_shader()?;
         self.graphics.get_texture_contents(&mut self.buffer).await
