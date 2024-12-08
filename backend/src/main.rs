@@ -1,3 +1,5 @@
+mod state;
+
 #[tokio::main]
 async fn main() {
     let mut texture_data: Vec<u8> = Vec::with_capacity(512 * 512 * 4);
@@ -20,7 +22,7 @@ async fn main() {
         .await
         .expect("couldn't get device");
 
-    let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+    let shader = device.create_shader_module(wgpu::include_wgsl!("state/shader.wgsl"));
 
     let render_target = device.create_texture(&wgpu::TextureDescriptor {
         label: None,
