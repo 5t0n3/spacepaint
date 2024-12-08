@@ -1,4 +1,27 @@
-body {
+/* Style for index.html */
+#map-page {
     margin: 0;
 }
+#map {
+    height: 100vh; 
+    width: 100vw;
+}
+
+/* Dark themed style */
+body {
+    background-color: #333;
+}
+
+p {
+    color: #f2f2f2;
+}
+
+p, li {
+    font-size: 17px;
+}
+
+a {
+    color: #add8e6;
+}
+
 
