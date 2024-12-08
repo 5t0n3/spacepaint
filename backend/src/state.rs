@@ -4,7 +4,8 @@ use std::path::Path;
 mod processing;
 
 /// Width of the map. Cell every 6 minutes, 180 degrees of latitude.
-const MAP_WIDTH: usize = 360 * 10;
+// const MAP_WIDTH: usize = 360 * 10;
+const MAP_WIDTH: usize = 3584; // TEMPORARY, ALIGNMENT
 
 /// Height of the map. Cell every 6 minutes, 180 degres of latitude.
 const MAP_HEIGHT: usize = 180 * 10;
@@ -35,10 +36,10 @@ impl State {
         Ok(State { graphics, buffer })
     }
 
-    pub async fn load_from_image(path: &Path) -> Result<State> {
+    pub async fn load_from_image<P: AsRef<Path>>(path: P) -> Result<State> {
         let graphics = processing::GraphicsStuff::init().await?;
 
-        let image_data = image::ImageReader::open(path)?.decode()?;
+        let image_data = image::ImageReader::open(path.as_ref())?.decode()?;
 
         match image_data {
             image::DynamicImage::ImageRgba8(data) => {
@@ -53,17 +54,18 @@ impl State {
         }
     }
 
-    pub async fn update_state_from_gpu(&mut self) -> Result<()> {
+    pub async fn tick_state(&mut self) -> Result<()> {
+        self.graphics.apply_shader()?;
         self.graphics.get_texture_contents(&mut self.buffer).await
     }
 
-    pub async fn save_state_to_image(&self, path: &Path) -> Result<()> {
+    pub async fn save_state_to_image<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let image_data = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
             MAP_WIDTH.try_into()?,
             MAP_HEIGHT.try_into()?,
             &self.buffer,
         )
         .ok_or_else(|| anyhow!("couldn't convert state to image"))?;
-        image_data.save(path).map_err(Into::into)
+        image_data.save(path.as_ref()).map_err(Into::into)
     }
 }
