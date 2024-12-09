@@ -53,11 +53,11 @@ function nonZero(inp) {
     return inp;
 }
 
-function marchingSquares(field, threshold,location,zoom) {
+function marchingSquares(field, threshold, location, zoom, zoom_y) {
     let cells = [];
-    for (row of field) {
+    for (let row of field) {
         let r = [];
-        for (c of row) {
+        for (let c of row) {
             r.push(c > threshold);
         }
         cells.push(r);
@@ -79,8 +79,8 @@ function marchingSquares(field, threshold,location,zoom) {
 
     let polygons = [];
 
-    for ([y, row] of cases.entries()) {
-        for ([x, item] of row.entries()) {
+    for (let [y, row] of cases.entries()) {
+        for (let [x, item] of row.entries()) {
 
             let tl = field[y][x];
             let tr = field[y][x + 1];
@@ -93,13 +93,13 @@ function marchingSquares(field, threshold,location,zoom) {
             let topLerp = (threshold - tl) / nonZero(tr - tl);
 
             let leftPoint = [0, zoom*leftLerp];
-            let bottomPoint = [zoom*bottomLerp, zoom*1];
-            let rightPoint = [zoom*1, zoom*rightLerp];
+            let bottomPoint = [zoom*bottomLerp, zoom_y*1];
+            let rightPoint = [zoom*1, zoom_y*rightLerp];
             let topPoint = [zoom*topLerp, 0];
 
             let topLeft = [0, 0];
-            let bottomLeft = [0, zoom*1];
-            let bottomRight = [zoom*1, zoom*1];
+            let bottomLeft = [0, zoom_y*1];
+            let bottomRight = [zoom*1, zoom_y*1];
             let topRight = [zoom*1, 0];
 
             let polys = [
@@ -126,14 +126,18 @@ function marchingSquares(field, threshold,location,zoom) {
 
             let new_polygons = polys[item];
 
-            for (p of new_polygons) {
-                for (point of p) {
-                    point[0] += location[y][x][0];
-                    point[1] += location[y][x][1];
+            for (let p of new_polygons) {
+                for (let point of p) {
+                    let px = location[y][x][1] + point[0];
+                    let py = location[y][x][0] - point[1];
+                    point[0] = py;
+                    point[1] = px;
+                    //point[0] += location[y][x][0];
+                    //point[1] += location[y][x][1];
                 }
             }
 
-            for (p of new_polygons) {
+            for (let p of new_polygons) {
                 polygons.push(p);
             }
         }
@@ -147,39 +151,68 @@ let polygons=[]
 let Polygons=[]
 
 function update_map(data, width, area) {
-    for (P of Polygons) {
+    console.log("UPDATING MAP");
+
+    for (let P of Polygons) {
         P.remove(map);
     }
-    Polygons=[]
+    Polygons = []
     let array = [];
-    let location=[];
-    let Zoomlist=[20,16,9,6,4,1.5,1,0.5,0.2,0.1,0.05,0.03,0.02,0.01,0.005];
-    let zoom=Zoomlist[map.getZoom()];
-    let height_px = data.length;
-    //send page stuff
-    let y_idx = 0;
-    for (let y = area.bottom_right.lat; y < area.top_left.lat; y += (area.top_left.lat - area.bottom_right.lat) / height_px) {
+    let location = [];
+
+    console.log("AAAAAA");
+    console.log(area.top_left.lat, area.top_left.long);
+    console.log(area.bottom_right.lat, area.bottom_right.long);
+    console.log("width = ", Math.abs(area.top_left.long - area.bottom_right.long));
+    console.log("height = ", Math.abs(area.top_left.lat - area.bottom_right.lat));
+    console.log("aspect ratio = ", Math.abs(area.top_left.lat - area.bottom_right.lat) / Math.abs(area.top_left.long - area.bottom_right.long));
+
+    console.log("image width = ", width);
+
+    //let Zoomlist = [20,16,9,6,4,1.5,1,0.5,0.2,0.1,0.05,0.03,0.02,0.01,0.005];
+    //let zoom=Zoomlist[map.getZoom()];
+    let bounds = map.getBounds();
+    let viewport_width = Math.abs(bounds.getEast() - bounds.getWest());
+    let height_px = data.length / width;
+    console.log("image height = ", height_px);
+//    let zoom = Math.abs(area.top_left - area.getWest()) / width;
+//    let zoom_y = Math.abs(area.getNorth() - area.getSouth()) / height_px;
+    let px_width = Math.abs(area.top_left.long - area.bottom_right.long) / width;
+    let px_height = Math.abs(area.top_left.lat - area.bottom_right.lat) / height_px;
+
+    let vectors = [];
+
+    for (let y_idx = 0; y_idx < height_px; y_idx++) {
+        let y = area.top_left.lat - px_height * y_idx;
         let row = [];
         let xrow = [];
-        let x_idx = 0;
-        for (let x = area.top_left.long; x < area.bottom_right.long; x += (area.top_left.long - area.bottom_right.long) / width) {
-            row.push(data[y_idx][x_idx++]);
-            //get value (prolly outside of loop)
-            xrow.push([x,y]);
+        for (let x_idx = 0; x_idx < width; x_idx++) {
+            let x = area.top_left.long + px_width * x_idx;
+            let dat = data[x_idx + y_idx * width];
+            row.push(dat.temp);
+
+            let vx = (dat.wind_x / 255) * (viewport_width / 80.0);
+            let vy = (dat.wind_y / 255) * (viewport_width / 80.0);
+
+            vectors.push([[y, x], [y + vy, x - vx]]);
+
+            xrow.push([y, x]);
         }
-        y_idx++;
         array.push(row);
         location.push(xrow);
     }
-    console.log(map.getCenter().lat,"lat")
-    console.log(map.getCenter().lng,"lng")
-    console.log(map.getZoom(),"zoom")
+
+    for (let p of vectors) {
+        let P = L.polygon(p, { color: "#338833", weight: 3.0 });
+        P.addTo(map);
+        Polygons.push(P);
+    }
 
     for (let v = 0; v < 127; v += 255 / 10) {
         //console.log(Polygons)
-        polygons = marchingSquares(array, v,location,zoom);
-        for (p of polygons) {
-            P=L.polygon(p, { color: "#0000ff", fillOpacity: 0.1, stroke: false });
+        polygons = marchingSquares(array, v, location, px_width, px_height);
+        for (let p of polygons) {
+            let P = L.polygon(p, { color: "#0000ff", fillOpacity: 0.1, stroke: false });
             P.addTo(map);
             //console.log(P);
             Polygons.push(P);
@@ -187,9 +220,9 @@ function update_map(data, width, area) {
     }
     for (let v = 128; v < 255; v += 255 / 10) {
         //console.log(Polygons)
-        polygons = marchingSquares(array, v,location,zoom);
-        for (p of polygons) {
-            P=L.polygon(p, { color: "#ff0000", fillOpacity: 0.1, stroke: false });
+        polygons = marchingSquares(array, v, location, px_width, px_height);
+        for (let p of polygons) {
+            let P = L.polygon(p, { color: "#ff0000", fillOpacity: 0.1, stroke: false });
             P.addTo(map);
             //console.log(P);
             Polygons.push(P);
@@ -199,6 +232,8 @@ function update_map(data, width, area) {
 
 window.addEventListener('DOMContentLoaded', function () {
     map = L.map('map').setView([10, 10], 5);
+
+    document.update_map = update_map;
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -252,7 +287,8 @@ window.addEventListener('DOMContentLoaded', function () {
     map.on('move', function() {
         let bounds = map.getBounds();
         console.log(bounds);
-        update_viewport(rect(bounds.getNorth(), bounds.getWest(), bounds.getSouth(), bounds.getEast()));
+        let overscan = Math.abs(bounds.getNorth() - bounds.getSouth()) * (1/10)
+        update_viewport(rect(bounds.getNorth() + overscan, bounds.getWest() - overscan, bounds.getSouth() - overscan, bounds.getEast() + overscan));
     });
 
 
