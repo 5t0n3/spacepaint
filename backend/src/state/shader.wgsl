@@ -26,11 +26,11 @@ fn fs_main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> 
     let temp_effects = temperature_on_wind(surrounding);
 
     // wind -> temp/clouds (5 is center pixel)
-    // let wind_effects = wind_on_others(surrounding);
+    let wind_effects = wind_on_others(surrounding);
 
     // result -> average of individual effects
-    // return (dispersed + temp_effects + wind_effects) / 3;
-    return dispersed;
+    return dispersed + temp_effects + wind_effects;
+    // return dispersed + temp_effects;
 }
 
 /// Loads all of the surrounding texels in a 3x3 grid around a given texel.
@@ -54,10 +54,15 @@ fn load_surrounding(center: vec4<f32>) -> array<vec4<f32>, 9> {
 /// Computes the 3x3 Gaussian around a single texel.
 fn gaussian(surrounding_grid: array<vec4<f32>, 9>) -> vec4<f32> {
     /// Gaussian coefficients, based on Pascal's triangle
+    // let gaussian_coeffs = array<f32, 9>(
+    //     0.08, 0.16, 0.08,
+    //     0.16, 0.04, 0.16,
+    //     0.08, 0.16, 0.08
+    // );
     let gaussian_coeffs = array<f32, 9>(
-        0.08, 0.16, 0.08,
-        0.16, 0.04, 0.16,
-        0.08, 0.16, 0.08
+        0.04, 0.08, 0.04,
+        0.08, 0.52, 0.08,
+        0.04, 0.08, 0.04
     );
 
     var result = vec4<f32>(0);
@@ -97,7 +102,6 @@ fn temperature_on_wind(surrounding_grid: array<vec4<f32>, 9>) -> vec4<f32> {
     return vec4f(0, new_horiz, new_vert, 0);
 }
 
-/*
 fn wind_on_others(surrounding_grid: array<vec4f, 9>) -> vec4f {
     let effect_matrices = array<mat2x2f, 8>(
         // case 1: 0 <= theta < pi/4
@@ -125,19 +129,38 @@ fn wind_on_others(surrounding_grid: array<vec4f, 9>) -> vec4f {
     // select effect matrix based on wind angle
     let previous_color = surrounding_grid[4];
 
+    // no wind -> no contribution (also this creates issues)
+    if (previous_color.g == 0.0 && previous_color.b == 0.0) {
+        return vec4f(0);
+    }
+
     // map angle to [0, 2pi]
     let wind_angle = atan2(previous_color.b, previous_color.g) + PI;
 
     // determine effect vector
     let effect_index = u32(floor((wind_angle + PI) * 4 / PI)) % 8;
-    let effect_vec = effect_matrices[effect_index] * previous_color.gb;
+    var effect_vec = effect_matrices[effect_index] * (previous_color.gb - 127);
+
+    // normalize effect_vec so a + b = 1
+    // a + b is guaranteed to be nonzero due to an earlier check
+    effect_vec /= effect_vec.x + effect_vec.y;
 
     // determine effect amount based on vector
     let a_index = a_indices[((effect_index + 1) % 8) / 2];
     let b_index = b_indices[effect_index / 2];
 
-    let effect_amount = surrounding_grid[a_index].ra * effect_vec.x + surrounding_grid[b_index].ra * effect_vec.y;
+    var coeffs = array<f32, 9>();
+    coeffs[a_index] = effect_vec.x;
+    coeffs[b_index] = effect_vec.y;
+    coeffs[4] = -1.0;
 
-    return vec4f(effect_amount.x, 0, 0, effect_amount.y);
+    var result = vec4f(0);
+    for (var i: u32 = 0; i < 9; i++) {
+        result += surrounding_grid[i] * coeffs[i];
+    }
+
+    result.g = 0.0;
+    result.b = 0.0;
+
+    return result;
 }
-*/
