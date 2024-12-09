@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use std::path::Path;
+use std::{io::Cursor, path::Path};
 
 mod processing;
 
@@ -55,6 +55,11 @@ impl State {
 
     /// Ticks the map state, and updates the internal copy of that state.
     pub async fn tick_state_by_count(&mut self, count: u32) -> Result<()> {
+        // ensure texture contents are consistent with internal state
+        self.graphics
+            .set_source_texture_contents(&self.buffer)
+            .await?;
+
         for _ in 0..count {
             self.graphics.apply_shader()?;
         }
@@ -99,24 +104,24 @@ impl State {
 
         let (x, y) = latlong_to_pixel_coords(top_left);
         let (br_x, br_y) = latlong_to_pixel_coords(bottom_right);
+        log::debug!("{x}, {y} -> {br_x}, {br_y}");
         let cropped = image.crop_imm(x, y, br_x - x, br_y - y);
 
         let scaled = cropped.resize(22, 40, image::imageops::FilterType::CatmullRom);
 
-        let mut output = Vec::new();
-        let encoder = image::codecs::png::PngEncoder::new(&mut output);
-        scaled.write_with_encoder(encoder)?;
+        let mut output_cursor = Cursor::new(Vec::new());
+        scaled.write_to(&mut output_cursor, image::ImageFormat::Png)?;
 
-        Ok(output)
+        Ok(output_cursor.into_inner())
     }
 }
 
 fn latlong_to_pixel_coords(latlong: crate::message::LatLong) -> (u32, u32) {
-    let x = (((latlong.long + 180.) / 360.).floor() as usize * MAP_WIDTH) as u32;
-    let y = (((latlong.lat + 90.) / 180.).floor() as usize * MAP_HEIGHT) as u32;
+    let x = ((latlong.long + 180.) / 360.) * MAP_WIDTH as f64;
+    let y = ((latlong.lat + 90.) / 180.) * MAP_HEIGHT as f64;
 
     (
-        x.clamp(0, MAP_WIDTH as u32 - 1),
-        y.clamp(0, MAP_HEIGHT as u32 - 1),
+        (x as u32).clamp(0, MAP_WIDTH as u32 - 1),
+        (y as u32).clamp(0, MAP_HEIGHT as u32 - 1),
     )
 }

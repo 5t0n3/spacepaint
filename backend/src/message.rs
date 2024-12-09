@@ -12,13 +12,13 @@ pub enum ModificationType {
     Wind,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct LatLong {
     pub lat: f64,
     pub long: f64,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct Rect {
     pub top_left: LatLong,
     pub bottom_right: LatLong,

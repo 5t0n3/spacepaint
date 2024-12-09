@@ -1,6 +1,6 @@
 use flexbuffers::Reader;
 use futures::{SinkExt, StreamExt};
-use log::debug;
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -23,6 +23,8 @@ fn start_syncing(
     state_shard: Arc<Mutex<GlobalState>>,
     modification_sink: tokio::sync::mpsc::Sender<message::Packet>,
 ) -> impl warp::Reply {
+    info!("New websocket connection");
+
     websocket.on_upgrade(move |actual_ws: WebSocket| async move {
         // split websocket into stream and sink ends
         let (sink, mut stream) = actual_ws.split();
@@ -31,6 +33,7 @@ fn start_syncing(
         {
             let mut locked_state = state_shard.lock().await;
             locked_state.client = Some(sink);
+            info!("Updated client websocket");
         }
 
         // task to process incoming messages
@@ -48,19 +51,23 @@ fn start_syncing(
 
                     match payload {
                         message::Packet::Snapshot { .. } => {
-                            panic!("client shouldn't send snapshots")
+                            warn!("received snapshot packet from client, this shouldn't happen");
                         }
-                        modif @ message::Packet::Modification { .. } => modification_sink
-                            .send(modif)
-                            .await
-                            .expect("couldn't send modification to sink"),
+                        modif @ message::Packet::Modification { .. } => {
+                            modification_sink
+                                .send(modif)
+                                .await
+                                .expect("couldn't send modification to sink");
+                            debug!("Received modification packet");
+                        }
                         message::Packet::Viewport { area, .. } => {
                             let mut locked_state = state_shard.lock().await;
                             locked_state.viewport = Some(area);
+                            debug!("Updated viewport to {area:?}");
                         }
                     }
                 } else {
-                    debug!("non binary message: {packet:?}");
+                    warn!("non binary message with data {packet:?}");
                 }
             }
         });
@@ -68,14 +75,13 @@ fn start_syncing(
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
+    // TODO: load from state.png instead
     let (mod_sender, mut mod_queue) = tokio::sync::mpsc::channel(50);
     let global_state = GlobalState {
-        map: state::State::load_from_image("images/just-noise.png")
-            .await
-            .expect("couldn't load state image"),
+        map: state::State::load_from_image("images/just-noise.png").await?,
         viewport: None,
         client: None,
     };
@@ -133,6 +139,7 @@ async fn main() {
                             .send(ws::Message::binary(serializer.view()))
                             .await
                             .expect("couldn't send message to client websocket");
+                        debug!("Sent ticked state to client");
                     }
                 }
             }
@@ -153,6 +160,7 @@ async fn main() {
 
             state::State::save_raw_to_image(state_data, "state.png")
                 .expect("couldn't save state image");
+            debug!("Saved state to state.png");
         }
     });
 
@@ -176,5 +184,8 @@ async fn main() {
         .unwrap_or_else(|_| "0.0.0.0:5000".to_owned())
         .parse()
         .expect("invalid socket addr");
-    warp::serve(all_filters).run(bind_address).await
+    info!("Preparing to serve on {bind_address}");
+    warp::serve(all_filters).run(bind_address).await;
+
+    Ok(())
 }
