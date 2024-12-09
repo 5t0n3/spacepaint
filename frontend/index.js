@@ -1,7 +1,7 @@
 var map = {};
 var mode = {"ctrl_clouds": null, "ctrl_heat": null, "ctrl_wind": null};
 var mode_view = {"view_clouds": true, "view_heat": true, "view_wind": true}
-var laser_width = 15;
+var laser_width = 60;
 let objects = [];
 
 function toggleAboutModal() {
@@ -135,11 +135,11 @@ window.addEventListener('DOMContentLoaded', function () {
     map.on('mousemove', function(e) {
         if (paintMode) {
           myPolyline.addLatLng(e.latlng);
-          console.log(myPolyline.setStyle({
+          myPolyline.setStyle({
             color: "#fff",
-            weight: 60,
+            weight: laser_width,
             opacity: 0.8
-            }),"styles");
+            }),"styles";
       //console.log(myPolyline.getLatLngs())
       }
     })
@@ -286,7 +286,7 @@ window.addEventListener('DOMContentLoaded', function () {
     var control_laser = makeButton('&#128396;', 'Control laser', 'ctrl_laser', [control_cloud, control_heat, control_wind], 
         toggleSubBar, ['ctrl_clouds']);
 
-    var width_slider = makeButton(`<input type="range" min="1" max="50" value="${laser_width}">`,
+    var width_slider = makeButton(`<input type="range" min="30" max="90" value="${laser_width}">`,
         'Control width slider', 'ctrl_slider', [], slider_input,  ['ctrl_slider']);
     var control_laser_width = makeButton('&#11044;', 'Control laser width', 'ctrl_laser_width', [width_slider], toggleSubBar, ['ctrl_slider']);
 
