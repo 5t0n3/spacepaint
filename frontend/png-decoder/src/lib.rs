@@ -64,7 +64,7 @@ pub struct Rect {
 #[derive(Serialize, Deserialize)]
 pub enum Packet {
     Snapshot { data: PNGFile, location: Rect },
-    Modification { tpe: ModificationType, points: Vec<LatLong>, brush_size: f64, location: Rect },
+    Modification { tpe: ModificationType, points: Vec<LatLong>, brush_size_degrees: f64, location: Rect },
     Viewport(Rect)
 }
 
