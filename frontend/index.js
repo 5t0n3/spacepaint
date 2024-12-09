@@ -354,7 +354,6 @@ window.addEventListener("DOMContentLoaded", function () {
 
   map.on("move", function () {
     let bounds = map.getBounds();
-    console.log(bounds);
     let overscan = Math.abs(bounds.getNorth() - bounds.getSouth()) * (1 / 10);
     update_viewport(
       rect(
@@ -579,6 +578,19 @@ window.addEventListener("DOMContentLoaded", function () {
       subBarButton_html.setAttribute("style", "background-color: #919187;");
     }
   }
+
+  setTimeout(function () {
+    let bounds = map.getBounds();
+    let overscan = Math.abs(bounds.getNorth() - bounds.getSouth()) * (1 / 10);
+    update_viewport(
+      rect(
+        bounds.getNorth() + overscan,
+        bounds.getWest() - overscan,
+        bounds.getSouth() - overscan,
+        bounds.getEast() + overscan,
+      ),
+    );
+  }, 500);
 
   init();
 });
