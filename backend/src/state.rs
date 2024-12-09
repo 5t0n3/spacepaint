@@ -121,8 +121,13 @@ impl State {
 
         let total_pixels = 40 * 22;
         let c = (rect.top_left.long - rect.bottom_right.long).abs() / (rect.top_left.lat - rect.bottom_right.lat).abs();
-        let h = ((total_pixels as f64) / c).sqrt().round() as u32;
-        let w = (((total_pixels as f64) / c).sqrt() * c).round() as u32;
+        let mut h = ((total_pixels as f64) / c).sqrt().round() as u32;
+        let mut w = (((total_pixels as f64) / c).sqrt() * c).round() as u32;
+        
+        if h == 0 || w == 0 {
+            h = 40;
+            w = 22;
+        }
         let scaled = cropped.resize_exact(w, h, image::imageops::FilterType::Gaussian);
 
         // scaled.save("debug.png")?;
