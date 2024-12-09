@@ -1,12 +1,16 @@
-use std::{cell::OnceCell, io::Cursor, sync::{Mutex, OnceLock}};
+use std::{
+    cell::OnceCell,
+    io::Cursor,
+    sync::{Mutex, OnceLock},
+};
 
 use flexbuffers::{FlexbufferSerializer, Reader};
 use image::{ColorType, ImageReader};
 
 use rand::{thread_rng, RngCore};
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, ErrorEvent, MessageEvent, WebSocket};
-use serde::{Serialize, Deserialize};
 
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
@@ -17,11 +21,11 @@ macro_rules! console_log {
 pub struct Pixel {
     temp: u8,
     haze: u8,
-    wind: (u8, u8)
+    wind: (u8, u8),
 }
 
 #[wasm_bindgen]
-extern {
+extern "C" {
     fn alert(s: &str);
 
     fn update_map(data: Vec<Pixel>, width: u32, area: Rect);
@@ -31,19 +35,26 @@ extern {
 }
 
 #[wasm_bindgen]
-pub fn greet() {
-}
+pub fn greet() {}
 
 static CLIENT_ID: OnceLock<u64> = OnceLock::new();
 
 #[wasm_bindgen]
 pub fn do_changes(points: Vec<LatLong>, brush_size_degrees: f64, mode: ModificationType) {
-    send_packet(Packet::Modification { tpe: mode, points, brush_size_degrees, client_id: *CLIENT_ID.get().unwrap() })
+    send_packet(Packet::Modification {
+        tpe: mode,
+        points,
+        brush_size_degrees,
+        client_id: *CLIENT_ID.get().unwrap(),
+    })
 }
 
 #[wasm_bindgen]
 pub fn update_viewport(rect: Rect) {
-    send_packet(Packet::Viewport { area: rect, client_id: *CLIENT_ID.get().unwrap() })
+    send_packet(Packet::Viewport {
+        area: rect,
+        client_id: *CLIENT_ID.get().unwrap(),
+    })
 }
 
 #[wasm_bindgen]
@@ -53,19 +64,38 @@ pub fn latlong(lat: f64, long: f64) -> LatLong {
 
 #[wasm_bindgen]
 pub fn rect(tl_lat: f64, tl_long: f64, br_lat: f64, br_long: f64) -> Rect {
-    Rect { top_left: LatLong { lat: tl_lat, long: tl_long }, bottom_right: LatLong { lat: br_lat, long: br_long } }
+    Rect {
+        top_left: LatLong {
+            lat: tl_lat,
+            long: tl_long,
+        },
+        bottom_right: LatLong {
+            lat: br_lat,
+            long: br_long,
+        },
+    }
 }
 
 fn send_packet(p: Packet) {
     let mut s = FlexbufferSerializer::new();
     p.serialize(&mut s).unwrap();
-    SOCK.lock().unwrap().clone().unwrap().sock.send_with_u8_array(s.view()).unwrap();
+    SOCK.lock()
+        .unwrap()
+        .clone()
+        .unwrap()
+        .sock
+        .send_with_u8_array(s.view())
+        .unwrap();
 }
 
 #[wasm_bindgen(getter_with_clone)]
 #[derive(Serialize, Deserialize)]
 pub enum ModificationType {
-    Heat, Cool, Humidify, Dehumidify, Wind
+    Heat,
+    Cool,
+    Humidify,
+    Dehumidify,
+    Wind,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -75,21 +105,32 @@ pub struct PNGFile(pub Vec<u8>);
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct LatLong {
     pub lat: f64,
-    pub long: f64
+    pub long: f64,
 }
 
 #[wasm_bindgen(getter_with_clone)]
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Rect {
     pub top_left: LatLong,
-    pub bottom_right: LatLong
+    pub bottom_right: LatLong,
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum Packet {
-    Snapshot { data: PNGFile, location: Rect },
-    Modification { tpe: ModificationType, points: Vec<LatLong>, brush_size_degrees: f64, client_id: u64 },
-    Viewport { area: Rect, client_id: u64 }
+    Snapshot {
+        data: PNGFile,
+        location: Rect,
+    },
+    Modification {
+        tpe: ModificationType,
+        points: Vec<LatLong>,
+        brush_size_degrees: f64,
+        client_id: u64,
+    },
+    Viewport {
+        area: Rect,
+        client_id: u64,
+    },
 }
 
 fn handle_packet(pack: Vec<u8>) -> Option<()> {
@@ -105,7 +146,14 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
 
             let im = img.as_rgba8().unwrap();
 
-            let out = im.pixels().map(|x| Pixel { temp: x.0[0], haze: x.0[3], wind: (x.0[1], x.0[2]) }).collect();
+            let out = im
+                .pixels()
+                .map(|x| Pixel {
+                    temp: x.0[0],
+                    haze: x.0[3],
+                    wind: (x.0[1], x.0[2]),
+                })
+                .collect();
 
             update_map(out, im.width(), location);
         }
@@ -123,7 +171,7 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
 
 #[derive(Clone)]
 struct WS {
-    sock: WebSocket
+    sock: WebSocket,
 }
 
 unsafe impl Send for WS {}
@@ -134,7 +182,7 @@ static SOCK: Mutex<Option<WS>> = Mutex::new(None);
 fn start() -> Result<(), JsValue> {
     CLIENT_ID.set(rand::random()).unwrap();
 
-    let ws = WebSocket::new("wss://echo.websocket.org")?;
+    let ws = WebSocket::new("/sync")?;
     ws.set_binary_type(web_sys::BinaryType::Blob);
 
     *SOCK.lock().unwrap() = Some(WS { sock: ws.clone() });
@@ -175,22 +223,5 @@ fn start() -> Result<(), JsValue> {
     ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
     onerror_callback.forget();
 
-    let cloned_ws = ws.clone();
-    let onopen_callback = Closure::<dyn FnMut()>::new(move || {
-        console_log!("socket opened");
-        match cloned_ws.send_with_str("ping") {
-            Ok(_) => console_log!("message successfully sent"),
-            Err(err) => console_log!("error sending message: {:?}", err),
-        }
-        // send off binary message
-        match cloned_ws.send_with_u8_array(&[0, 1, 2, 3]) {
-            Ok(_) => console_log!("binary message successfully sent"),
-            Err(err) => console_log!("error sending message: {:?}", err),
-        }
-    });
-    ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
-    onopen_callback.forget();
-
     Ok(())
 }
-

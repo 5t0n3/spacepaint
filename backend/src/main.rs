@@ -1,5 +1,6 @@
 use flexbuffers::Reader;
 use futures::{SinkExt, StreamExt};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -36,23 +37,30 @@ fn start_syncing(
         tokio::spawn(async move {
             while let Some(message) = stream.next().await {
                 let message = message.expect("couldn't receive message from websocket");
-                let packet = message.into_bytes();
 
-                let message_reader = Reader::get_root(packet.as_slice())
-                    .expect("couldn't construct flexbuffer reader for packet body");
-                let payload = message::Packet::deserialize(message_reader)
-                    .expect("couldn't deserialize packet from websocket message");
+                let packet = message.as_bytes();
 
-                match payload {
-                    message::Packet::Snapshot { .. } => panic!("client shouldn't send snapshots"),
-                    modif @ message::Packet::Modification { .. } => modification_sink
-                        .send(modif)
-                        .await
-                        .expect("couldn't send modification to sink"),
-                    message::Packet::Viewport { area, .. } => {
-                        let mut locked_state = state_shard.lock().await;
-                        locked_state.viewport = Some(area);
+                if message.is_binary() {
+                    let message_reader = Reader::get_root(packet)
+                        .expect("couldn't construct flexbuffer reader for packet body");
+                    let payload = message::Packet::deserialize(message_reader)
+                        .expect("couldn't deserialize packet from websocket message");
+
+                    match payload {
+                        message::Packet::Snapshot { .. } => {
+                            panic!("client shouldn't send snapshots")
+                        }
+                        modif @ message::Packet::Modification { .. } => modification_sink
+                            .send(modif)
+                            .await
+                            .expect("couldn't send modification to sink"),
+                        message::Packet::Viewport { area, .. } => {
+                            let mut locked_state = state_shard.lock().await;
+                            locked_state.viewport = Some(area);
+                        }
                     }
+                } else {
+                    debug!("non binary message: {packet:?}");
                 }
             }
         });
