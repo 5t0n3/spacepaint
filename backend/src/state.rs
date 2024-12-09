@@ -76,4 +76,47 @@ impl State {
         .ok_or_else(|| anyhow!("couldn't convert state to image"))?;
         image_data.save(path.as_ref()).map_err(Into::into)
     }
+
+    /// Renders the current state to the provided rectangle/view.
+    ///
+    /// Currently just samples the state but eventually will average over regions.
+    pub fn render_cropped_state(&self, section: super::message::Rect) -> Result<Vec<u8>> {
+        let state = self.get_state_clone();
+        let image_data = image::ImageBuffer::<image::Rgba<u8>, Vec<u8>>::from_raw(
+            MAP_WIDTH.try_into()?,
+            MAP_HEIGHT.try_into()?,
+            state,
+        )
+        .ok_or_else(|| anyhow!("couldn't convert state to image"))?;
+        let image = image::DynamicImage::ImageRgba8(image_data);
+
+        let super::message::Rect {
+            top_left,
+            bottom_right,
+        } = section;
+
+        // NOTE: top_left/bottom_right will have different components because of how zooming works
+
+        let (x, y) = latlong_to_pixel_coords(top_left);
+        let (br_x, br_y) = latlong_to_pixel_coords(bottom_right);
+        let cropped = image.crop_imm(x, y, br_x - x, br_y - y);
+
+        let scaled = cropped.resize(22, 40, image::imageops::FilterType::CatmullRom);
+
+        let mut output = Vec::new();
+        let encoder = image::codecs::png::PngEncoder::new(&mut output);
+        scaled.write_with_encoder(encoder)?;
+
+        Ok(output)
+    }
+}
+
+fn latlong_to_pixel_coords(latlong: crate::message::LatLong) -> (u32, u32) {
+    let x = (((latlong.long + 180.) / 360.).floor() as usize * MAP_WIDTH) as u32;
+    let y = (((latlong.lat + 90.) / 180.).floor() as usize * MAP_HEIGHT) as u32;
+
+    (
+        x.clamp(0, MAP_WIDTH as u32 - 1),
+        y.clamp(0, MAP_HEIGHT as u32 - 1),
+    )
 }

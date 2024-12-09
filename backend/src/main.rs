@@ -1,7 +1,6 @@
 use flexbuffers::Reader;
 use futures::{SinkExt, StreamExt};
-use log::{debug, error};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -104,6 +103,29 @@ async fn main() {
                     .tick_state_by_count(1)
                     .await
                     .expect("couldn't tick state");
+
+                if let Some(rect) = locked_state.viewport {
+                    let snapshot_png = locked_state
+                        .map
+                        .render_cropped_state(rect)
+                        .expect("couldn't render cropped state");
+
+                    let packet = message::Packet::Snapshot {
+                        data: message::PNGFile(snapshot_png),
+                        location: rect,
+                    };
+                    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                    packet
+                        .serialize(&mut serializer)
+                        .expect("couldn't serialize snapshot packet");
+
+                    if let Some(client_ws) = locked_state.client.as_mut() {
+                        client_ws
+                            .send(ws::Message::binary(serializer.view()))
+                            .await
+                            .expect("couldn't send message to client websocket");
+                    }
+                }
             }
         }
     });
