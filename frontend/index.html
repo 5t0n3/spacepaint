@@ -19,6 +19,12 @@
     <main id="map-page">
         <div id="map"></div>
     </main>
+    <script type="module">
+        import init, { greet } from "./png-decoder/pkg/png_decoder.js";
+        init().then(() => {
+          greet("WebAssembly");
+        });
+      </script>
 
     <!-- Modal adapted from assignment 3 -->
     <div id="modal-backdrop" class="hidden"></div>
