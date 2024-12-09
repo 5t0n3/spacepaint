@@ -1,8 +1,9 @@
-use std::io::Cursor;
+use std::{cell::OnceCell, io::Cursor, sync::{Mutex, OnceLock}};
 
-use flexbuffers::Reader;
+use flexbuffers::{FlexbufferSerializer, Reader};
 use image::{ColorType, ImageReader};
 
+use rand::{thread_rng, RngCore};
 use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, ErrorEvent, MessageEvent, WebSocket};
 use serde::{Serialize, Deserialize};
@@ -33,9 +34,22 @@ extern {
 pub fn greet() {
 }
 
+static CLIENT_ID: OnceLock<u64> = OnceLock::new();
+
+#[wasm_bindgen]
+pub fn do_changes(points: Vec<Pixel>, width_degrees: f64) {
+    todo!()
+}
+
 #[wasm_bindgen]
 pub fn update_viewport(rect: Rect) {
-    todo!()
+    send_packet(Packet::Viewport { area: rect, client_id: *CLIENT_ID.get().unwrap() })
+}
+
+fn send_packet(p: Packet) {
+    let mut s = FlexbufferSerializer::new();
+    p.serialize(&mut s).unwrap();
+    SOCK.lock().unwrap().clone().unwrap().sock.send_with_u8_array(s.view()).unwrap();
 }
 
 
@@ -64,8 +78,8 @@ pub struct Rect {
 #[derive(Serialize, Deserialize)]
 pub enum Packet {
     Snapshot { data: PNGFile, location: Rect },
-    Modification { tpe: ModificationType, points: Vec<LatLong>, brush_size_degrees: f64, location: Rect },
-    Viewport(Rect)
+    Modification { tpe: ModificationType, points: Vec<LatLong>, brush_size_degrees: f64, location: Rect, client_id: u64 },
+    Viewport { area: Rect, client_id: u64 }
 }
 
 fn handle_packet(pack: Vec<u8>) -> Option<()> {
@@ -81,7 +95,7 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
 
             let im = img.as_rgba8().unwrap();
 
-            let out = im.pixels().map(|x| Pixel { temp: x.0[0], haze: x.0[1], wind: (x.0[2], x.0[3]) }).collect();
+            let out = im.pixels().map(|x| Pixel { temp: x.0[0], haze: x.0[3], wind: (x.0[1], x.0[2]) }).collect();
 
             update_map(out, im.width(), location);
         }
@@ -92,12 +106,23 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
     Some(())
 }
 
+#[derive(Clone)]
+struct WS {
+    sock: WebSocket
+}
+
+unsafe impl Send for WS {}
+
+static SOCK: Mutex<Option<WS>> = Mutex::new(None);
+
 #[wasm_bindgen(start)]
 fn start() -> Result<(), JsValue> {
+    CLIENT_ID.set(rand::random()).unwrap();
+
     let ws = WebSocket::new("wss://echo.websocket.org")?;
     ws.set_binary_type(web_sys::BinaryType::Blob);
 
-    let cloned_ws = ws.clone();
+    *SOCK.lock().unwrap() = Some(WS { sock: ws.clone() });
 
     let onmessage_callback = Closure::<dyn FnMut(_)>::new(move |e: MessageEvent| {
         if let Ok(abuf) = e.data().dyn_into::<js_sys::ArrayBuffer>() {
