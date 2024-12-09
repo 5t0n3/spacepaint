@@ -1,7 +1,8 @@
 use flexbuffers::Reader;
-use futures::{FutureExt, SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt};
 use log::{debug, info, warn};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,10 +13,20 @@ use warp::Filter;
 mod message;
 mod state;
 
-struct GlobalState {
-    map: state::State,
+struct Client {
+    /// Viewport last sent by client, if applicable.
     viewport: Option<message::Rect>,
-    client: Option<futures::stream::SplitSink<WebSocket, ws::Message>>,
+
+    /// Write end of the client websocket.
+    ws_sink: futures::stream::SplitSink<WebSocket, ws::Message>,
+}
+
+struct GlobalState {
+    /// Weather map state.
+    map: state::State,
+
+    /// Map from client IDs to client info.
+    clients: HashMap<u64, Client>,
 }
 
 fn start_syncing(
@@ -27,20 +38,33 @@ fn start_syncing(
 
     websocket.on_upgrade(move |actual_ws: WebSocket| async move {
         // split websocket into stream and sink ends
-        let (sink, mut stream) = actual_ws.split();
+        let (mut sink, mut stream) = actual_ws.split();
 
-        // add sink to global state to send updates to
+        // generate a random client ID & send to client
+        let client_id: u64 = rand::random();
+        let id_packet = message::Packet::AssignId { client_id };
+        let id_payload =
+            message::serialize_packet(id_packet).expect("couldn't serialize client ID packet");
+        sink.send(ws::Message::binary(id_payload))
+            .await
+            .expect("couldn't send ID packet to client");
+
+        let client_info = Client {
+            viewport: None,
+            ws_sink: sink,
+        };
+
+        // add sink/viewport to global state to send updates to
         {
             let mut locked_state = state_shard.lock().await;
-            locked_state.client = Some(sink);
-            info!("Updated client websocket");
+            locked_state.clients.insert(client_id, client_info);
+            info!("New client connected with id {client_id}");
         }
 
         // task to process incoming messages
         tokio::spawn(async move {
             while let Some(message) = stream.next().await {
                 let message = message.expect("couldn't receive message from websocket");
-
                 let packet = message.as_bytes();
 
                 if message.is_binary() {
@@ -50,8 +74,8 @@ fn start_syncing(
                         .expect("couldn't deserialize packet from websocket message");
 
                     match payload {
-                        message::Packet::Snapshot { .. } => {
-                            warn!("received snapshot packet from client, this shouldn't happen");
+                        message::Packet::Snapshot { .. } | message::Packet::AssignId { .. } => {
+                            warn!("received server-only packet from client, this shouldn't happen");
                         }
                         modif @ message::Packet::Modification { .. } => {
                             modification_sink
@@ -60,19 +84,29 @@ fn start_syncing(
                                 .expect("couldn't send modification to sink");
                             debug!("Received modification packet");
                         }
-                        message::Packet::Viewport { area, .. } => {
+                        message::Packet::Viewport { area, client_id } => {
                             let mut locked_state = state_shard.lock().await;
-                            locked_state.viewport = Some(area);
-                            debug!("Updated viewport to {area:?}");
+
+                            match locked_state.clients.get_mut(&client_id) {
+                                Some(client) => {
+                                    client.viewport = Some(area);
+                                    debug!("Updated viewport to {area:?}");
+                                }
+                                None => warn!(
+                                    "received viewport packet from nonexistent client {client_id}"
+                                ),
+                            }
                         }
                     }
                 } else if message.is_close() {
                     // closing message: unregister viewport/client from global state
                     {
                         let mut locked_state = state_shard.lock().await;
-                        locked_state.client.take();
-                        locked_state.viewport.take();
-                        info!("Client disconnected - viewport/websocket cleared");
+                        if locked_state.clients.remove(&client_id).is_none() {
+                            warn!("Tried to remove nonexistent client {client_id} on connection close");
+                        } else {
+                            info!("Client disconnected - viewport/websocket cleared");
+                        }
                     }
                 } else {
                     warn!("unexpected message type with data {packet:?}");
@@ -90,8 +124,7 @@ async fn main() -> anyhow::Result<()> {
     let (mod_sender, mut mod_queue) = tokio::sync::mpsc::channel(50);
     let global_state = GlobalState {
         map: state::State::load_from_image("images/just-noise.png").await?,
-        viewport: None,
-        client: None,
+        clients: HashMap::new(),
     };
     let global_state = Arc::new(Mutex::new(global_state));
 
@@ -130,28 +163,33 @@ async fn main() -> anyhow::Result<()> {
                     .await
                     .expect("couldn't tick state");
 
-                if let Some(rect) = locked_state.viewport {
-                    let snapshot_png = locked_state
-                        .map
-                        .render_cropped_state(rect)
-                        .expect("couldn't render cropped state");
+                let mut sends: HashMap<u64, Vec<u8>> = HashMap::new();
+                for (client_id, client) in locked_state.clients.iter() {
+                    if let Some(rect) = client.viewport {
+                        let snapshot_png = locked_state
+                            .map
+                            .render_cropped_state(rect)
+                            .expect("couldn't render cropped state");
 
-                    let packet = message::Packet::Snapshot {
-                        data: message::PNGFile(snapshot_png),
-                        location: rect,
-                    };
-                    let mut serializer = flexbuffers::FlexbufferSerializer::new();
-                    packet
-                        .serialize(&mut serializer)
-                        .expect("couldn't serialize snapshot packet");
+                        let packet = message::Packet::Snapshot {
+                            data: message::PNGFile(snapshot_png),
+                            location: rect,
+                        };
+                        let packet_data = message::serialize_packet(packet)
+                            .expect("couldn't serialize snapshot packet");
 
-                    if let Some(client_ws) = locked_state.client.as_mut() {
-                        match client_ws.send(ws::Message::binary(serializer.view())).await {
-                            Ok(()) => debug!("Sent ticked state to client"),
-                            Err(e) => {
-                                warn!("Error sending ticked snapshot to client: {e}");
-                                locked_state.client.take();
-                            }
+                        sends.insert(*client_id, packet_data);
+                    }
+                }
+
+                for (client_id, payload) in sends.into_iter() {
+                    let client = locked_state.clients.get_mut(&client_id).expect(
+                        "getting client info when sending snapshot to known existent client failed",
+                    );
+                    match client.ws_sink.send(ws::Message::binary(payload)).await {
+                        Ok(()) => debug!("Sent ticked state to client"),
+                        Err(e) => {
+                            warn!("Error sending ticked snapshot to client: {e}");
                         }
                     }
                 }
