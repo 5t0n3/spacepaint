@@ -26,7 +26,7 @@ fn fs_main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> 
     let temp_effects = temperature_on_wind(surrounding);
 
     // wind -> temp/clouds (5 is center pixel)
-    // let wind_effects = wind_on_others(surrounding);
+    let wind_effects = wind_on_others(surrounding);
 
     // result -> average of individual effects
     return (dispersed + temp_effects + wind_effects) / 3;
