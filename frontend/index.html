@@ -15,7 +15,49 @@
     <link rel="stylesheet" href="node_modules/leaflet-toolbar/dist/leaflet.toolbar.css"/>
     <script src="./index.js"></script>
 </head>
-<body id="map-page">
-    <div id="map"></div>
+<body>
+    <main id="map-page">
+        <div id="map"></div>
+    </main>
+
+    <!-- Modal adapted from assignment 3 -->
+    <div id="modal-backdrop" class="hidden"></div>
+    <div id="about-modal" class="hidden">
+        <div class="modal-dialog">
+            <div class="modal-header">
+              <h3>Space Paint</h3>
+              <button type="button" onclick="toggleAboutModal()" id="modal-close" class="modal-hide-button">&times;</button>
+            </div>
+
+            <div class="modal-body">
+    
+              <div class="about-element">
+                <h3>Welcome to the space laser control panel!</h3>
+                <p>Here you can use our equatorial satellite constellation to control the worlds weather. 
+                Unfortunately, due to congressional budget cuts we were unable to get polar coverage.</p>
+              </div>
+
+              <div class="about-element">
+                <h3>Views</h3>
+                <p>We have three view layers you can overlay. <b>Cloud map</b>, <b>heat map</b>, and <b>wind map</b>. 
+                    Each view can be separately toggled, by default all three are <b>enabled</b>.</p>
+              </div>
+
+              <div class="about-element">
+                <h3>Controls</h3>
+                <p>We have three weather elements you can control. <b>Clouds</b>, <b>heat</b>, and <b>wind</b>. 
+                   Each control can be separately toggled between disabled, increase, and decrease. By default all three are <b>disabled</b>.</p>
+              </div>
+
+    
+              
+            </div>
+    
+            <div class="modal-footer">
+              <button onclick="toggleAboutModal()" type="button" id="modal-close-bottom" class="modal-hide-button action-button">Close</button>
+            </div>
+    
+          </div>
+        </div>
 </body>
 </html>
