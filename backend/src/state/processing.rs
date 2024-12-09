@@ -16,8 +16,11 @@ pub struct GraphicsStuff {
 }
 
 impl GraphicsStuff {
+    /// Initializes all the `wgpu` backend shenanigans necessary to render textures & stuff.
     pub async fn init() -> Result<GraphicsStuff> {
+        // NOTE: we don't need to keep the instance around according to wgpu docs; everything else we kinda need though
         let instance = wgpu::Instance::default();
+
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
             .await

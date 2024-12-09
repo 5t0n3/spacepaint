@@ -4,8 +4,8 @@ use std::path::Path;
 mod processing;
 
 /// Width of the map. Cell every 6 minutes, 180 degrees of latitude.
-// const MAP_WIDTH: usize = 360 * 10;
-const MAP_WIDTH: usize = 3584; // TEMPORARY, ALIGNMENT
+/// Rounded to nearest multiple of 256 for alignment reasons.
+const MAP_WIDTH: usize = 3584;
 
 /// Height of the map. Cell every 6 minutes, 180 degres of latitude.
 const MAP_HEIGHT: usize = 180 * 10;
@@ -55,14 +55,14 @@ impl State {
 
     /// Ticks the map state, and updates the internal copy of that state.
     pub async fn tick_state_by_count(&mut self, count: u32) -> Result<()> {
-        for i in 0..count {
-            println!("tick {i}");
+        for _ in 0..count {
             self.graphics.apply_shader()?;
         }
 
         self.graphics.get_texture_contents(&mut self.buffer).await
     }
 
+    /// Saves the current map state as an 8-bit RGBA image.
     pub async fn save_state_to_image<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let image_data = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
             MAP_WIDTH.try_into()?,
