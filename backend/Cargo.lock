@@ -2030,6 +2030,7 @@ dependencies = [
  "futures",
  "image",
  "log",
+ "rand",
  "serde",
  "tokio",
  "warp",

@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -26,6 +27,9 @@ pub struct Rect {
 
 #[derive(Serialize, Deserialize)]
 pub enum Packet {
+    AssignId {
+        client_id: u64,
+    },
     Snapshot {
         data: PNGFile,
         location: Rect,
@@ -40,4 +44,11 @@ pub enum Packet {
         area: Rect,
         client_id: u64,
     },
+}
+
+pub fn serialize_packet(payload: Packet) -> Result<Vec<u8>> {
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    payload.serialize(&mut serializer)?;
+
+    Ok(serializer.view().to_vec())
 }
