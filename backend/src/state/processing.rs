@@ -135,13 +135,15 @@ impl GraphicsStuff {
         })
     }
 
-    pub async fn set_texture_contents(&self, data: &[u8]) -> Result<()> {
+    /// Sets the contents of the texture that will next be used as a render source.
+    pub async fn set_source_texture_contents(&self, data: &[u8]) -> Result<()> {
         let texture = if self.render_to_texture2 {
             &self.texture1
         } else {
             &self.texture2
         };
 
+        // write data to texture via the queue.
         self.queue.write_texture(
             wgpu::ImageCopyTexture {
                 texture,
@@ -161,17 +163,18 @@ impl GraphicsStuff {
                 depth_or_array_layers: 1,
             },
         );
-
         self.queue.submit([]);
 
         Ok(())
     }
 
+    /// Applies the vertex & fragment shaders that advance the state.
     pub fn apply_shader(&mut self) -> Result<()> {
         let mut command_encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
+        // choose source/render textures based on current render target
         let (render_texture, source_texture) = if self.render_to_texture2 {
             (&self.texture2, &self.texture1)
         } else {
@@ -198,6 +201,7 @@ impl GraphicsStuff {
             });
             render_pass.set_pipeline(&self.pipeline);
 
+            // add source texture to bind group, which was configured as part of the layout in init()
             let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: None,
                 layout: &self.pipeline.get_bind_group_layout(0),
@@ -206,31 +210,36 @@ impl GraphicsStuff {
                     resource: wgpu::BindingResource::TextureView(&source_view),
                 }],
             });
-
             render_pass.set_bind_group(0, &bind_group, &[]);
 
-            // just draw a triangle
+            // just draw a triangle (lol) - covers the entire viewport thing
             render_pass.draw(0..3, 0..1);
         }
 
+        // submit render pass to GPU queue
         self.queue.submit(Some(command_encoder.finish()));
 
+        // alternate which texture gets rendered to
         self.render_to_texture2 = !self.render_to_texture2;
 
         Ok(())
     }
 
+    /// Copies the last rendered texture's contents into the provided buffer.
+    ///
+    /// Panics if the provided buffer doesn't match the size of the texture's raw RGBA data.
     pub async fn get_texture_contents(&self, output: &mut [u8]) -> Result<()> {
+        // fetch contents of texture that was last rendered to (i.e., not the next render target)
         let source_texture = if self.render_to_texture2 {
             &self.texture1
         } else {
             &self.texture2
         };
 
+        // step 1: copy texture contents to intermediate buffer
         let mut command_encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-
         command_encoder.copy_texture_to_buffer(
             wgpu::ImageCopyTexture {
                 texture: &source_texture,
@@ -256,6 +265,7 @@ impl GraphicsStuff {
         // execute copy from texture to buffer
         self.queue.submit(Some(command_encoder.finish()));
 
+        // step 2: map buffer as readable asynchronously (but not async)
         let buffer_slice = self.output_buffer.slice(..);
 
         // map buffer as readable
@@ -268,7 +278,7 @@ impl GraphicsStuff {
         self.device.poll(wgpu::Maintain::wait());
         ready_receiver.await??;
 
-        // buffer is now ready; copy data out of it
+        // buffer is now mapped; copy data out of it
         {
             let buffer_view = buffer_slice.get_mapped_range();
             output.copy_from_slice(&buffer_view);

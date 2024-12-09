@@ -12,7 +12,6 @@ const MAP_HEIGHT: usize = 180 * 10;
 
 /// Bytes per pixel. 1 byte per channel * 4 channels.
 const BYTES_PER_PIXEL: usize = 4;
-// const BYTES_PER_PIXEL: usize = 2 * 4;
 
 /// Size of the raw state data, in bytes.
 const STATE_BYTES: usize = MAP_WIDTH * MAP_HEIGHT * BYTES_PER_PIXEL;
@@ -31,7 +30,7 @@ impl State {
 
         let buffer = Vec::with_capacity(STATE_BYTES);
 
-        // TODO: perlin noise
+        // TODO: perlin noise?
 
         Ok(State { graphics, buffer })
     }
@@ -46,7 +45,7 @@ impl State {
                 let buffer = data.into_raw();
 
                 // write buffer to underlying texture
-                graphics.set_texture_contents(&buffer).await?;
+                graphics.set_source_texture_contents(&buffer).await?;
 
                 Ok(State { graphics, buffer })
             }
@@ -55,8 +54,12 @@ impl State {
     }
 
     /// Ticks the map state, and updates the internal copy of that state.
-    pub async fn tick_state(&mut self) -> Result<()> {
-        self.graphics.apply_shader()?;
+    pub async fn tick_state_by_count(&mut self, count: u32) -> Result<()> {
+        for i in 0..count {
+            println!("tick {i}");
+            self.graphics.apply_shader()?;
+        }
+
         self.graphics.get_texture_contents(&mut self.buffer).await
     }
 
