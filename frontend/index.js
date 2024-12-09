@@ -170,6 +170,7 @@ function update_map(data, width, area) {
   Polygons = [];
   let array = [];
   let location = [];
+  let clouds = [];
 
   let bounds = map.getBounds();
   let viewport_width = Math.abs(bounds.getEast() - bounds.getWest());
@@ -184,10 +185,12 @@ function update_map(data, width, area) {
     let y = area.top_left.lat - px_height * y_idx;
     let row = [];
     let xrow = [];
+    let cloud_row = [];
     for (let x_idx = 0; x_idx < width; x_idx++) {
       let x = area.top_left.long + px_width * x_idx;
       let dat = data[x_idx + y_idx * width];
       row.push(dat.temp);
+      cloud_row.push(dat.haze);
 
       let vx = (dat.wind_x / 255) * (viewport_width / 80.0);
       let vy = (dat.wind_y / 255) * (viewport_width / 80.0);
@@ -200,41 +203,57 @@ function update_map(data, width, area) {
       xrow.push([y, x]);
     }
     array.push(row);
+    clouds.push(cloud_row);
     location.push(xrow);
   }
 
-  for (let p of vectors) {
-    let P = L.polygon(p, { color: "#338833", weight: 3.0 });
-    P.addTo(map);
-    Polygons.push(P);
-  }
-
-  for (let v = 0; v < 127; v += 255 / 10) {
-    //console.log(Polygons)
-    polygons = marchingSquares(array, v, location, px_width, px_height);
-    for (let p of polygons) {
-      let P = L.polygon(p, {
-        color: "#0000ff",
-        fillOpacity: 0.1,
-        stroke: false,
-      });
+  if (mode_view.view_wind) {
+    for (let p of vectors) {
+      let P = L.polygon(p, { color: "#338833", weight: 3.0 });
       P.addTo(map);
-      //console.log(P);
       Polygons.push(P);
     }
   }
-  for (let v = 128; v < 255; v += 255 / 10) {
-    //console.log(Polygons)
-    polygons = marchingSquares(array, v, location, px_width, px_height);
-    for (let p of polygons) {
-      let P = L.polygon(p, {
-        color: "#ff0000",
-        fillOpacity: 0.1,
-        stroke: false,
-      });
-      P.addTo(map);
-      //console.log(P);
-      Polygons.push(P);
+
+  if (mode_view.view_heat) {
+    for (let v = 0; v < 127; v += 255 / 10) {
+      polygons = marchingSquares(array, v, location, px_width, px_height);
+      for (let p of polygons) {
+        let P = L.polygon(p, {
+          color: "#0000ff",
+          fillOpacity: 0.1,
+          stroke: false,
+        });
+        P.addTo(map);
+        Polygons.push(P);
+      }
+    }
+    for (let v = 128; v < 255; v += 255 / 10) {
+      polygons = marchingSquares(array, v, location, px_width, px_height);
+      for (let p of polygons) {
+        let P = L.polygon(p, {
+          color: "#ff0000",
+          fillOpacity: 0.1,
+          stroke: false,
+        });
+        P.addTo(map);
+        Polygons.push(P);
+      }
+    }
+  }
+  
+  if (mode_view.view_clouds) {
+    for (let v = 0; v < 255; v += 255 / 10) {
+      polygons = marchingSquares(clouds, v, location, px_width, px_height);
+      for (let p of polygons) {
+        let P = L.polygon(p, {
+          color: "#333333",
+          fillOpacity: 0.1,
+          stroke: false,
+        });
+        P.addTo(map);
+        Polygons.push(P);
+      }
     }
   }
 }
