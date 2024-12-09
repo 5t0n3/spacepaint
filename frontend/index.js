@@ -1,4 +1,4 @@
-import init, { Rect, LatLong, Pixel, update_viewport, do_changes, rect, latlong } from "./png-decoder/pkg/png_decoder.js";
+import init, { Rect, LatLong, Pixel, ModificationType, update_viewport, do_changes, rect, latlong } from "./png-decoder/pkg/png_decoder.js";
 
 let map = {};
 let mode = {"ctrl_clouds": null, "ctrl_heat": null, "ctrl_wind": null};
@@ -152,8 +152,6 @@ let polygons=[]
 let Polygons=[]
 
 function update_map(data, width, area) {
-    console.log("UPDATING MAP");
-
     for (let P of Polygons) {
         P.remove(map);
     }
@@ -249,7 +247,7 @@ window.addEventListener('DOMContentLoaded', function () {
                 let bounds = map.getBounds();
                 let viewport_width = Math.abs(bounds.getEast() - bounds.getWest());
                 let size = map.getSize();
-                let degreesPerPixel = viewport_width / (size.getSize().x)
+                let degreesPerPixel = viewport_width / size.x
                 
                 do_changes(points, laser_width * degreesPerPixel, curCtrlMode);
             }
