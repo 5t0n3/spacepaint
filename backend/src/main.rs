@@ -66,8 +66,16 @@ fn start_syncing(
                             debug!("Updated viewport to {area:?}");
                         }
                     }
+                } else if message.is_close() {
+                    // closing message: unregister viewport/client from global state
+                    {
+                        let mut locked_state = state_shard.lock().await;
+                        locked_state.client.take();
+                        locked_state.viewport.take();
+                        info!("Client disconnected - viewport/websocket cleared");
+                    }
                 } else {
-                    warn!("non binary message with data {packet:?}");
+                    warn!("unexpected message type with data {packet:?}");
                 }
             }
         });
@@ -169,11 +177,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // TODO: read from frontend/just serve actual files
     let index_route = warp::path::end().and(warp::fs::file("../frontend/index.html"));
-    let about_route = warp::path("about")
-        .and(warp::path::end())
-        .and(warp::fs::file("../frontend/about.html"));
     let static_route = warp::fs::dir("../frontend/");
     let ws_route = warp::path("sync")
         .and(warp::path::end())
@@ -183,7 +187,7 @@ async fn main() -> anyhow::Result<()> {
             start_syncing(ws, state_clone, mod_sender.clone())
         });
 
-    let all_filters = index_route.or(about_route).or(static_route).or(ws_route);
+    let all_filters = index_route.or(static_route).or(ws_route);
 
     let bind_address: SocketAddr = std::env::var("SPACEPAINT_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:5000".to_owned())
