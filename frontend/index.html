@@ -17,5 +17,12 @@
 </head>
 <body id="map-page">
     <div id="map"></div>
+
+    <script type="module">
+      import init, { greet } from "./png-decoder/pkg/png_decoder.js";
+      init().then(() => {
+        greet("WebAssembly");
+      });
+    </script>
 </body>
 </html>
