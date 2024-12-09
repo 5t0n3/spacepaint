@@ -224,7 +224,7 @@ window.addEventListener('DOMContentLoaded', function () {
             button_html.setAttribute("style", "background-color: #919187;");
         }
     }
-    // Toggles the view mode of a button and displays add, remove, or disabled colors
+    // Toggles the edit mode of a button and displays add, remove, or disabled colors
     function toggleMode(mode_var, mode_type, className) {
         switch (mode_var[mode_type]){
             case true:
@@ -237,15 +237,24 @@ window.addEventListener('DOMContentLoaded', function () {
                 mode_var[mode_type] = true;
                 break;
         }
-        button_html = document.getElementsByClassName(className)[0];
-        if(mode_var[mode_type] === true){
-            button_html.setAttribute("style", "background-color: #37ff37;");
-        } else if (mode_var[mode_type] === false) {
-            button_html.setAttribute("style", "background-color: #ff3737;");
-            
-        } else {
-            button_html.setAttribute("style", "background-color: #919187;");
+        if(mode_var[mode_type] !== null) {
+            for(const item in mode_var) {
+                if(item != mode_type) {
+                    mode_var[item] = null;
+                }
+            }
         }
+        for(const item in mode_var) {
+            button_html = document.getElementsByClassName(item)[0];
+            if(mode[item] === true){
+                button_html.setAttribute("style", "background-color: #37ff37;");
+            } else if (mode[item] === false) {
+                button_html.setAttribute("style", "background-color: #ff3737;");
+                
+            } else {
+                button_html.setAttribute("style", "background-color: #919187;");
+            }
+        }  
     }
 
     // Toggles display of the sub tool bar
@@ -272,7 +281,7 @@ window.addEventListener('DOMContentLoaded', function () {
     // Buttons to enable/diable editing of clouds, heat, and wind
     var control_cloud = makeButton('&#9729;', 'Edit clouds', 'ctrl_clouds', [], toggleMode, [mode, "ctrl_clouds", 'ctrl_clouds']);
     var control_heat = makeButton('&#127777;', 'Edit heat', 'ctrl_heat', [], toggleMode, [mode, "ctrl_heat", 'ctrl_heat']);
-    var control_wind = makeButton('~', 'Edit wind', 'ctrl_wind', [], toggleMode, [mode, "ctrl_wind", 'ctrl_wind']);
+    var control_wind = makeButton('≈', 'Edit wind', 'ctrl_wind', [], toggleMode, [mode, "ctrl_wind", 'ctrl_wind']);
     // Button for dropdown for above buttons for editing map
     var control_laser = makeButton('&#128396;', 'Control laser', 'ctrl_laser', [control_cloud, control_heat, control_wind], 
         toggleSubBar, ['ctrl_clouds']);
@@ -304,7 +313,7 @@ window.addEventListener('DOMContentLoaded', function () {
         }
     }
     // Initialize display of enable state
-    for (const item of ["ctrl_clouds", "ctrl_heat", "ctrl_wind"]) {
+    for (const item in mode) {
         subBarButton_html = document.getElementsByClassName(item)[0];
         if(mode[item] === true){
             subBarButton_html.setAttribute("style", "background-color: #37ff37;");
