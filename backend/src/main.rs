@@ -1,5 +1,5 @@
 use flexbuffers::Reader;
-use futures::{SinkExt, StreamExt};
+use futures::{FutureExt, SinkExt, StreamExt};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
@@ -95,10 +95,14 @@ async fn main() -> anyhow::Result<()> {
 
     // spawn task to apply modifications
     tokio::spawn(async move {
-        while let Some(_modif @ message::Packet::Modification { .. }) = mod_queue.recv().await {
-            // TODO: apply modification to state
-            // global_state_clone.method();
-            let _ = global_state_modification;
+        while let Some(modif @ message::Packet::Modification { .. }) = mod_queue.recv().await {
+            debug!("Processing modification packet");
+            {
+                let mut locked_state = global_state_modification.lock().await;
+                if let Err(e) = locked_state.map.process_modification(modif) {
+                    warn!("error processing modification: {e}");
+                }
+            }
         }
     });
 
@@ -123,7 +127,6 @@ async fn main() -> anyhow::Result<()> {
                         .map
                         .render_cropped_state(rect)
                         .expect("couldn't render cropped state");
-                    println!("png length = {} bytes", snapshot_png.len());
 
                     let packet = message::Packet::Snapshot {
                         data: message::PNGFile(snapshot_png),

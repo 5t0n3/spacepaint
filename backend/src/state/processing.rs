@@ -1,3 +1,5 @@
+use std::ops::Neg;
+
 use anyhow::{anyhow, Context, Result};
 use wgpu::BufferUsages;
 
@@ -292,4 +294,27 @@ impl GraphicsStuff {
 
         Ok(())
     }
+}
+
+pub fn precompute_gaussian(width: usize, scale: i8) -> Vec<i8> {
+    let mut kernel = Vec::with_capacity(width.pow(2));
+
+    let n_plus_1_over_2 = (width as f64 + 1.) / 2.;
+    let mut sum = 0.;
+
+    // one indexing :skull:
+    for i in 1..=width {
+        for j in 1..=width {
+            let squares =
+                (i as f64 - n_plus_1_over_2).powi(2) + (j as f64 - n_plus_1_over_2).powi(2);
+            let entry = squares.neg().exp();
+            kernel.push(entry);
+            sum += entry;
+        }
+    }
+
+    kernel
+        .iter()
+        .map(|n| (n / sum * scale as f64) as i8)
+        .collect()
 }
