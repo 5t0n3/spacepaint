@@ -148,8 +148,11 @@ async fn main() {
     });
 
     // TODO: read from frontend/just serve actual files
-    let index_route = warp::path::end().map(|| "index");
-    let about_route = warp::path("about").and(warp::path::end()).map(|| "about");
+    let index_route = warp::path::end().and(warp::fs::file("../frontend/index.html"));
+    let about_route = warp::path("about")
+        .and(warp::path::end())
+        .and(warp::fs::file("../frontend/about.html"));
+    let static_route = warp::fs::dir("../frontend/");
     let ws_route = warp::path("sync")
         .and(warp::path::end())
         .and(warp::ws())
@@ -158,7 +161,7 @@ async fn main() {
             start_syncing(ws, state_clone, mod_sender.clone())
         });
 
-    let all_filters = index_route.or(about_route).or(ws_route);
+    let all_filters = index_route.or(about_route).or(static_route).or(ws_route);
 
     let bind_address: SocketAddr = std::env::var("SPACEPAINT_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:5000".to_owned())
