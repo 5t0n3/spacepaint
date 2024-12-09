@@ -10,8 +10,8 @@ import init, {
 } from "./png-decoder/pkg/png_decoder.js";
 
 let map = {};
-let mode = { ctrl_clouds: null, ctrl_heat: null, ctrl_wind: null };
-let mode_view = { view_clouds: true, view_heat: true, view_wind: true };
+let mode = { ctrl_clouds: null, ctrl_heat: null};
+let mode_view = { view_clouds: false, view_heat: true, view_wind: true };
 let laser_width = 60;
 let objects = [];
 
@@ -33,9 +33,9 @@ function getCurrentCtrlMode() {
           case "ctrl_heat":
             currentCtrlMode = ModificationType.Heat;
             break;
-          case "ctrl_wind":
-            currentCtrlMode = ModificationType.Wind;
-            break;
+          // case "ctrl_wind":
+          //   currentCtrlMode = ModificationType.Wind;
+          //   break;
         }
       } else {
         switch (item) {
@@ -45,10 +45,10 @@ function getCurrentCtrlMode() {
           case "ctrl_heat":
             currentCtrlMode = ModificationType.Cool;
             break;
-          case "ctrl_wind":
-            // NOT A THING
-            currentCtrlMode = ModificationType.Still;
-            break;
+          // case "ctrl_wind":
+          //   // NOT A THING
+          //   currentCtrlMode = ModificationType.Still;
+          //   break;
         }
       }
     }
@@ -475,17 +475,17 @@ window.addEventListener("DOMContentLoaded", function () {
     toggleMode,
     [mode, "ctrl_heat", "ctrl_heat"],
   );
-  var control_wind = makeButton("≈", "Edit wind", "ctrl_wind", [], toggleMode, [
-    mode,
-    "ctrl_wind",
-    "ctrl_wind",
-  ]);
+  // var control_wind = makeButton("≈", "Edit wind", "ctrl_wind", [], toggleMode, [
+  //   mode,
+  //   "ctrl_wind",
+  //   "ctrl_wind",
+  // ]);
   // Button for dropdown for above buttons for editing map
   var control_laser = makeButton(
     "&#128396;",
     "Control laser",
     "ctrl_laser",
-    [control_cloud, control_heat, control_wind],
+    [control_cloud, control_heat],
     toggleSubBar,
     ["ctrl_clouds"],
   );
