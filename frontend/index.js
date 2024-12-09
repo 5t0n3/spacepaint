@@ -77,7 +77,7 @@ function marchingSquares(field, threshold, location, zoom, zoom_y) {
   let height = field.length;
 
   let cases = [];
-
+  
   for (let y = 0; y < height - 1; y++) {
     let row = [];
     for (let x = 0; x < width - 1; x++) {
@@ -91,7 +91,41 @@ function marchingSquares(field, threshold, location, zoom, zoom_y) {
     cases.push(row);
   }
 
+  let filled_regions = [];
+
   let polygons = [];
+
+  for (let y = 0; y < height - 1; y++) {
+    let last_idx = -1;
+    let last_pos = -1;
+    for (let x = 1; x < width - 1; x++) {
+      if (cases[y][x] == 15) {
+        if (last_idx == -1) {
+          last_idx = x;
+          last_pos = location[y][x][1];
+        }
+        cases[y][x] = 0;
+      } else if (last_idx != -1) {
+        let last_good_pos = location[y][x - 1];
+        polygons.push([
+          [last_good_pos[0], last_pos],
+          [last_good_pos[0] - zoom_y, last_pos],
+          [last_good_pos[0] - zoom_y, last_good_pos[1] + zoom],
+          [last_good_pos[0], last_good_pos[1] + zoom]
+        ]);
+        last_idx = -1;
+      }
+    }
+    if (last_idx != -1) {
+      let last_good_pos = location[y][width - 1];
+      polygons.push([
+        [last_good_pos[0], last_pos],
+        [last_good_pos[0] - zoom_y, last_pos],
+        [last_good_pos[0] - zoom_y, last_good_pos[1] + zoom],
+        [last_good_pos[0], last_good_pos[1] + zoom]
+      ]);
+    }
+  }
 
   for (let [y, row] of cases.entries()) {
     for (let [x, item] of row.entries()) {
@@ -243,7 +277,7 @@ function update_map(data, width, area) {
   }
   
   if (mode_view.view_clouds) {
-    for (let v = 0; v < 255; v += 255 / 10) {
+    for (let v = 100; v < 255; v += 255 / 10) {
       polygons = marchingSquares(clouds, v, location, px_width, px_height);
       for (let p of polygons) {
         let P = L.polygon(p, {
