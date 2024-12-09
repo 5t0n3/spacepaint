@@ -26,10 +26,11 @@ fn fs_main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> 
     let temp_effects = temperature_on_wind(surrounding);
 
     // wind -> temp/clouds (5 is center pixel)
-    let wind_effects = wind_on_others(surrounding);
+    // let wind_effects = wind_on_others(surrounding);
 
     // result -> average of individual effects
-    return (dispersed + temp_effects + wind_effects) / 3;
+    // return (dispersed + temp_effects + wind_effects) / 3;
+    return dispersed;
 }
 
 /// Loads all of the surrounding texels in a 3x3 grid around a given texel.
@@ -87,14 +88,16 @@ fn temperature_on_wind(surrounding_grid: array<vec4<f32>, 9>) -> vec4<f32> {
     var new_vert: f32 = 0;
 
     for (var i: i32 = 0; i < 9; i++) {
-        // temperature is the red channel
-        new_horiz += horizontal_coeffs[i] * surrounding_grid[i].r;
-        new_vert += vertical_coeffs[i] * surrounding_grid[i].r;
+        // if this isn't loaded into a separate variable it blows up so
+        let red = surrounding_grid[i].r;
+        new_vert += vertical_coeffs[i] * red;
+        new_horiz += horizontal_coeffs[i] * red;
     }
 
     return vec4f(0, new_horiz, new_vert, 0);
 }
 
+/*
 fn wind_on_others(surrounding_grid: array<vec4f, 9>) -> vec4f {
     let effect_matrices = array<mat2x2f, 8>(
         // case 1: 0 <= theta < pi/4
@@ -120,7 +123,7 @@ fn wind_on_others(surrounding_grid: array<vec4f, 9>) -> vec4f {
     let b_indices = array<u32, 4>(2, 0, 6, 8);
 
     // select effect matrix based on wind angle
-    let previous_color = surrounding_grid[5];
+    let previous_color = surrounding_grid[4];
 
     // map angle to [0, 2pi]
     let wind_angle = atan2(previous_color.b, previous_color.g) + PI;
@@ -137,3 +140,4 @@ fn wind_on_others(surrounding_grid: array<vec4f, 9>) -> vec4f {
 
     return vec4f(effect_amount.x, 0, 0, effect_amount.y);
 }
+*/
