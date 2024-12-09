@@ -139,12 +139,16 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
 
     match p {
         Packet::Snapshot { data, location } => {
+            console_log!("got snapshot, {} bytes", data.0.len());
             let img = ImageReader::new(Cursor::new(data.0)).decode().ok()?;
+            console_log!("decoded");
             if img.color() != ColorType::Rgba8 || img.width() * img.height() > 8192 {
+                console_log!("bad size or color depth");
                 return None;
             }
 
             let im = img.as_rgba8().unwrap();
+            console_log!("processing");
 
             let out = im
                 .pixels()
@@ -155,6 +159,7 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
                 })
                 .collect();
 
+            console_log!("calling update_map");
             update_map(out, im.width(), location);
         }
         // other packet types are ignored by the client

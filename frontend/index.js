@@ -114,6 +114,7 @@ let polygons=[]
 let Polygons=[]
 
 function update_map(data, width, area) {
+    console.log("UPDATING MAP");
     for (P of Polygons) {
         P.remove(map);
     }

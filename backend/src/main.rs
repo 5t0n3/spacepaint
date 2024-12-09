@@ -117,6 +117,7 @@ async fn main() {
                         .map
                         .render_cropped_state(rect)
                         .expect("couldn't render cropped state");
+                    println!("png length = {} bytes", snapshot_png.len());
 
                     let packet = message::Packet::Snapshot {
                         data: message::PNGFile(snapshot_png),
