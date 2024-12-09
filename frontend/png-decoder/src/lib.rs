@@ -51,6 +51,7 @@ pub fn do_changes(points: Vec<LatLong>, brush_size_degrees: f64, mode: Modificat
 
 #[wasm_bindgen]
 pub fn update_viewport(rect: Rect) {
+    console_log!("rect: {rect:?}");
     send_packet(Packet::Viewport {
         area: rect,
         client_id: *CLIENT_ID.get().unwrap(),
@@ -102,14 +103,14 @@ pub enum ModificationType {
 pub struct PNGFile(pub Vec<u8>);
 
 #[wasm_bindgen(getter_with_clone)]
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct LatLong {
     pub lat: f64,
     pub long: f64,
 }
 
 #[wasm_bindgen(getter_with_clone)]
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct Rect {
     pub top_left: LatLong,
     pub bottom_right: LatLong,
