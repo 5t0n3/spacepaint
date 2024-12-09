@@ -1,8 +1,8 @@
-import init, { Rect, LatLong, Pixel, ModificationType, update_viewport, do_changes, rect, latlong } from "./png-decoder/pkg/png_decoder.js";
+import init, { Rect, LatLong, Pixel, update_viewport, do_changes, rect, latlong } from "./png-decoder/pkg/png_decoder.js";
 
 let map = {};
-let mode = {"ctrl_clouds": null, "ctrl_heat": null, "ctrl_wind": null};
-let mode_view = {"view_clouds": true, "view_heat": true, "view_wind": true}
+let mode = {"ctrl_clouds": null, "ctrl_heat": null, };
+let mode_view = {"view_clouds": false, "view_heat": true, "view_wind": true}
 let laser_width = 60;
 let objects = [];
 
@@ -10,7 +10,7 @@ function toggleAboutModal() {
     document.getElementById("modal-backdrop").classList.toggle('hidden');
     document.getElementById("about-modal").classList.toggle('hidden');
 }
-window.toggleAboutModal = toggleAboutModal;
+window.toggleAboutModal = toggleAboutModal
 
 function getCurrentCtrlMode() {
     var currentCtrlMode = null;
@@ -19,27 +19,26 @@ function getCurrentCtrlMode() {
             if(mode[item] == true) {
                 switch (item) {
                     case "ctrl_clouds":
-                        currentCtrlMode = ModificationType.Humudify;
+                        currentCtrlMode ="Humidify";
                         break;
                     case "ctrl_heat":
-                        currentCtrlMode = ModificationType.Heat;
+                        currentCtrlMode ="Heat";
                         break;
-                    case "ctrl_wind":
-                        currentCtrlMode = ModificationType.Wind;
-                        break;
+                    // case "ctrl_wind":
+                    //     currentCtrlMode ="Wind";
+                    //     break;
                 }
             } else {
                 switch (item) {
                     case "ctrl_clouds":
-                        currentCtrlMode = ModificationType.Dehumidify;
+                        currentCtrlMode ="Dehumidify";
                         break;
                     case "ctrl_heat":
-                        currentCtrlMode = ModificationType.Cool;
+                        currentCtrlMode ="Cool";
                         break;
-                    case "ctrl_wind":
-                        // NOT A THING
-                        currentCtrlMode = ModificationType.Still;
-                        break;
+                    // case "ctrl_wind":
+                    //     currentCtrlMode ="Still";
+                    //     break;
                 }
             }
         }
@@ -54,11 +53,11 @@ function nonZero(inp) {
     return inp;
 }
 
-function marchingSquares(field, threshold, location, zoom, zoom_y) {
+function marchingSquares(field, threshold,location,zoom) {
     let cells = [];
-    for (let row of field) {
+    for (row of field) {
         let r = [];
-        for (let c of row) {
+        for (c of row) {
             r.push(c > threshold);
         }
         cells.push(r);
@@ -80,8 +79,8 @@ function marchingSquares(field, threshold, location, zoom, zoom_y) {
 
     let polygons = [];
 
-    for (let [y, row] of cases.entries()) {
-        for (let [x, item] of row.entries()) {
+    for ([y, row] of cases.entries()) {
+        for ([x, item] of row.entries()) {
 
             let tl = field[y][x];
             let tr = field[y][x + 1];
@@ -94,13 +93,13 @@ function marchingSquares(field, threshold, location, zoom, zoom_y) {
             let topLerp = (threshold - tl) / nonZero(tr - tl);
 
             let leftPoint = [0, zoom*leftLerp];
-            let bottomPoint = [zoom*bottomLerp, zoom_y*1];
-            let rightPoint = [zoom*1, zoom_y*rightLerp];
+            let bottomPoint = [zoom*bottomLerp, zoom*1];
+            let rightPoint = [zoom*1, zoom*rightLerp];
             let topPoint = [zoom*topLerp, 0];
 
             let topLeft = [0, 0];
-            let bottomLeft = [0, zoom_y*1];
-            let bottomRight = [zoom*1, zoom_y*1];
+            let bottomLeft = [0, zoom*1];
+            let bottomRight = [zoom*1, zoom*1];
             let topRight = [zoom*1, 0];
 
             let polys = [
@@ -127,18 +126,14 @@ function marchingSquares(field, threshold, location, zoom, zoom_y) {
 
             let new_polygons = polys[item];
 
-            for (let p of new_polygons) {
-                for (let point of p) {
-                    let px = location[y][x][1] + point[0];
-                    let py = location[y][x][0] - point[1];
-                    point[0] = py;
-                    point[1] = px;
-                    //point[0] += location[y][x][0];
-                    //point[1] += location[y][x][1];
+            for (p of new_polygons) {
+                for (point of p) {
+                    point[0] += location[y][x][0];
+                    point[1] += location[y][x][1];
                 }
             }
 
-            for (let p of new_polygons) {
+            for (p of new_polygons) {
                 polygons.push(p);
             }
         }
@@ -152,52 +147,39 @@ let polygons=[]
 let Polygons=[]
 
 function update_map(data, width, area) {
-    for (let P of Polygons) {
+    for (P of Polygons) {
         P.remove(map);
     }
-    Polygons = []
+    Polygons=[]
     let array = [];
-    let location = [];
-
-    let bounds = map.getBounds();
-    let viewport_width = Math.abs(bounds.getEast() - bounds.getWest());
-    let height_px = data.length / width;
-    let px_width = Math.abs(area.top_left.long - area.bottom_right.long) / width;
-    let px_height = Math.abs(area.top_left.lat - area.bottom_right.lat) / height_px;
-
-    let vectors = [];
-
-    for (let y_idx = 0; y_idx < height_px; y_idx++) {
-        let y = area.top_left.lat - px_height * y_idx;
+    let location=[];
+    let Zoomlist=[20,16,9,6,4,1.5,1,0.5,0.2,0.1,0.05,0.03,0.02,0.01,0.005];
+    let zoom=Zoomlist[map.getZoom()];
+    let height_px = data.length;
+    //send page stuff
+    let y_idx = 0;
+    for (let y = area.bottom_right.lat; y < area.top_left.lat; y += (area.top_left.lat - area.bottom_right.lat) / height_px) {
         let row = [];
         let xrow = [];
-        for (let x_idx = 0; x_idx < width; x_idx++) {
-            let x = area.top_left.long + px_width * x_idx;
-            let dat = data[x_idx + y_idx * width];
-            row.push(dat.temp);
-
-            let vx = (dat.wind_x / 255) * (viewport_width / 80.0);
-            let vy = (dat.wind_y / 255) * (viewport_width / 80.0);
-
-            vectors.push([[y, x], [y + vy, x - vx]]);
-
-            xrow.push([y, x]);
+        let x_idx = 0;
+        for (let x = area.top_left.long; x < area.bottom_right.long; x += (area.top_left.long - area.bottom_right.long) / width) {
+            row.push(data[y_idx][x_idx++]);
+            //get value (prolly outside of loop)
+            xrow.push([x,y]);
         }
+        y_idx++;
         array.push(row);
         location.push(xrow);
     }
-
-    for (let p of vectors) {
-        let P = L.polygon(p, { color: "#338833", weight: 3.0 });
-        P.addTo(map);
-        Polygons.push(P);
-    }
+    console.log(map.getCenter().lat,"lat")
+    console.log(map.getCenter().lng,"lng")
+    console.log(map.getZoom(),"zoom")
 
     for (let v = 0; v < 127; v += 255 / 10) {
         //console.log(Polygons)
-        polygons = marchingSquares(array, v, location, px_width, px_height);
-        for (let p of polygons) {
-            let P = L.polygon(p, { color: "#0000ff", fillOpacity: 0.1, stroke: false });
+        polygons = marchingSquares(array, v,location,zoom);
+        for (p of polygons) {
+            P=L.polygon(p, { color: "#0000ff", fillOpacity: 0.1, stroke: false });
             P.addTo(map);
             //console.log(P);
             Polygons.push(P);
@@ -205,9 +187,9 @@ function update_map(data, width, area) {
     }
     for (let v = 128; v < 255; v += 255 / 10) {
         //console.log(Polygons)
-        polygons = marchingSquares(array, v, location, px_width, px_height);
-        for (let p of polygons) {
-            let P = L.polygon(p, { color: "#ff0000", fillOpacity: 0.1, stroke: false });
+        polygons = marchingSquares(array, v,location,zoom);
+        for (p of polygons) {
+            P=L.polygon(p, { color: "#ff0000", fillOpacity: 0.1, stroke: false });
             P.addTo(map);
             //console.log(P);
             Polygons.push(P);
@@ -217,8 +199,6 @@ function update_map(data, width, area) {
 
 window.addEventListener('DOMContentLoaded', function () {
     map = L.map('map').setView([10, 10], 5);
-
-    document.update_map = update_map;
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -243,13 +223,8 @@ window.addEventListener('DOMContentLoaded', function () {
                 for (const coord of coords){
                     points.push(latlong(coord.lat, coord.lng));
                 }
-
-                let bounds = map.getBounds();
-                let viewport_width = Math.abs(bounds.getEast() - bounds.getWest());
-                let size = map.getSize();
-                let degreesPerPixel = viewport_width / size.x
                 
-                do_changes(points, laser_width * degreesPerPixel, curCtrlMode);
+                do_changes(points, laser_width, curCtrlMode);
             }
         }
     })
@@ -277,8 +252,7 @@ window.addEventListener('DOMContentLoaded', function () {
     map.on('move', function() {
         let bounds = map.getBounds();
         console.log(bounds);
-        let overscan = Math.abs(bounds.getNorth() - bounds.getSouth()) * (1/10)
-        update_viewport(rect(bounds.getNorth() + overscan, bounds.getWest() - overscan, bounds.getSouth() - overscan, bounds.getEast() + overscan));
+        update_viewport(rect(bounds.getNorth(), bounds.getWest(), bounds.getSouth(), bounds.getEast()));
     });
 
 
@@ -367,9 +341,9 @@ window.addEventListener('DOMContentLoaded', function () {
     // Buttons to enable/diable editing of clouds, heat, and wind
     var control_cloud = makeButton('&#9729;', 'Edit clouds', 'ctrl_clouds', [], toggleMode, [mode, "ctrl_clouds", 'ctrl_clouds']);
     var control_heat = makeButton('&#127777;', 'Edit heat', 'ctrl_heat', [], toggleMode, [mode, "ctrl_heat", 'ctrl_heat']);
-    var control_wind = makeButton('≈', 'Edit wind', 'ctrl_wind', [], toggleMode, [mode, "ctrl_wind", 'ctrl_wind']);
+    // var control_wind = makeButton('≈', 'Edit wind', 'ctrl_wind', [], toggleMode, [mode, "ctrl_wind", 'ctrl_wind']);
     // Button for dropdown for above buttons for editing map
-    var control_laser = makeButton('&#128396;', 'Control laser', 'ctrl_laser', [control_cloud, control_heat, control_wind], 
+    var control_laser = makeButton('&#128396;', 'Control laser', 'ctrl_laser', [control_cloud, control_heat], 
         toggleSubBar, ['ctrl_clouds']);
 
     var width_slider = makeButton(`<input type="range" min="30" max="90" value="${laser_width}">`,
