@@ -296,6 +296,7 @@ impl GraphicsStuff {
     }
 }
 
+#[allow(unused)]
 pub fn precompute_gaussian(width: usize, scale: i8) -> Vec<i8> {
     let mut kernel = Vec::with_capacity(width.pow(2));
 

@@ -1,6 +1,4 @@
 use anyhow::{anyhow, Result};
-use log::debug;
-use processing::precompute_gaussian;
 use std::{io::Cursor, path::Path};
 
 use crate::message::ModificationType;
@@ -114,7 +112,7 @@ impl State {
         let (x, y) = latlong_to_pixel_coords(top_left);
         let (br_x, br_y) = latlong_to_pixel_coords(bottom_right);
         log::debug!("{x}, {y} -> {br_x}, {br_y}");
-        let cropped = image.crop_imm(x, MAP_HEIGHT as u32 - y, br_x - x, y - br_y);
+        let cropped = image.crop_imm(x, y, br_x - x, br_y - y);
 
         let scaled = cropped.resize_exact(40, 22, image::imageops::FilterType::Gaussian);
 
@@ -135,8 +133,7 @@ impl State {
                 ..
             } => {
                 // convert brush size to simulation tiles
-                let brush_width_px =
-                    ((brush_size_degrees * 2.) / 180. * MAP_HEIGHT as f64) as usize;
+                let brush_width_px = ((brush_size_degrees) / 180. * MAP_HEIGHT as f64) as usize;
                 let half_width = brush_width_px / 2;
 
                 let sign = match tpe {
@@ -147,8 +144,6 @@ impl State {
 
                 let channel: Channel = tpe.into();
 
-                let delta_mask = precompute_gaussian(brush_width_px, sign * DRAW_DELTA);
-
                 for point in points {
                     let (center_x, center_y) = latlong_to_pixel_coords(point);
 
@@ -157,11 +152,13 @@ impl State {
                         let y_offset = center_y as usize + ((i % brush_width_px) - half_width);
 
                         // 4 bytes per pixel
-                        let index = y_offset * MAP_WIDTH * 4 + x_offset * 4 + channel as usize;
+                        let index = y_offset * MAP_WIDTH * BYTES_PER_PIXEL
+                            + x_offset * BYTES_PER_PIXEL
+                            + channel as usize;
 
                         if index < STATE_BYTES {
                             self.buffer[index] =
-                                self.buffer[index].saturating_add_signed(delta_mask[i]);
+                                self.buffer[index].saturating_add_signed(sign * DRAW_DELTA);
                         }
                     }
                 }
@@ -179,17 +176,17 @@ fn latlong_to_pixel_coords(latlong: crate::message::LatLong) -> (u32, u32) {
 
     (
         (x as u32).clamp(0, MAP_WIDTH as u32 - 1),
-        (y as u32).clamp(0, MAP_HEIGHT as u32 - 1),
+        (MAP_HEIGHT as u32 - y as u32).clamp(0, MAP_HEIGHT as u32 - 1),
     )
 }
 
 #[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Channel {
     Temperature = 0,
-    WindX,
-    WindY,
-    Haze,
+    WindX = 1,
+    WindY = 2,
+    Haze = 3,
 }
 
 impl From<ModificationType> for Channel {
