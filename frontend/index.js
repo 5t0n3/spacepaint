@@ -98,6 +98,8 @@ function marchingSquares(field, threshold) {
     return polygons;
 }
 
+var bar;
+
 window.addEventListener('DOMContentLoaded', function () {
     map = L.map('map').setView([10, 10], 5);
 
@@ -130,35 +132,21 @@ window.addEventListener('DOMContentLoaded', function () {
     var action1 = L.Toolbar2.Action.extend({
         options: {
             toolbarIcon: {
-                html: '&#9873;',
+                html: '<div id="AAAA">&#9873;</div>',
                 tooltip: 'your mother.'
             }
         },
         addHooks: function () {
             mode = 'heat';
+            document.getElementById("AAAA").innerHTML = "blah";
         }
     });
 
-    new L.Toolbar2.Control({
+    bar = new L.Toolbar2.Control({
         position: 'topright',
         actions: [action1]
     }).addTo(map);
 
-    var action2 = L.Toolbar2.Action.extend({
-        options: {
-            toolbarIcon: {
-                html: 'AAA',
-                tooltip: 'your mother.'
-            }
-        },
-        addHooks: function () {
-            mode = 'heat';
-        }
-    });
-
-    new L.Toolbar2.Control({
-        position: 'topleft',
-        actions: [action2]
-    }).addTo(map);
+    console.log(bar.options.actions);
 });
 

@@ -11,5 +11,12 @@
 </head>
 <body>
     <div id="map" style="height: 100vh; width: 100vw;"></div>
+
+    <script type="module">
+      import init, { greet } from "./png-decoder/pkg/png_decoder.js";
+      init().then(() => {
+        greet("WebAssembly");
+      });
+    </script>
 </body>
 
