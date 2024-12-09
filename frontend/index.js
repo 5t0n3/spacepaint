@@ -172,11 +172,22 @@ window.addEventListener('DOMContentLoaded', function () {
         console.log(map.getCenter().lng,"lng")
         console.log(map.getZoom(),"zoom")
         
-        for (let v = -1; v < 1; v += 1 / 5) {
+        
+        for (let v = -1; v < 0; v += 1 / 5) {
             //console.log(Polygons)
             polygons = marchingSquares(array, v,location,zoom);
             for (p of polygons) {
-                P=L.polygon(p, { color: "#aa00ff", fillOpacity: 0.1, stroke: false });
+                P=L.polygon(p, { color: "#0000ff", fillOpacity: 0.1, stroke: false });
+                P.addTo(map);
+                //console.log(P);
+                Polygons.push(P);
+            }
+        }
+        for (let v = 0; v < 1; v += 1 / 5) {
+            //console.log(Polygons)
+            polygons = marchingSquares(array, v,location,zoom);
+            for (p of polygons) {
+                P=L.polygon(p, { color: "#ff0000", fillOpacity: 0.1, stroke: false });
                 P.addTo(map);
                 //console.log(P);
                 Polygons.push(P);
