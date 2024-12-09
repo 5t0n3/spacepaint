@@ -134,23 +134,41 @@ function update_map(data, width, area) {
 
     //let Zoomlist = [20,16,9,6,4,1.5,1,0.5,0.2,0.1,0.05,0.03,0.02,0.01,0.005];
     //let zoom=Zoomlist[map.getZoom()];
+    let bounds = map.getBounds();
+    let viewport_width = Math.abs(bounds.getEast() - bounds.getWest());
     let height_px = data.length / width;
     console.log("image height = ", height_px);
 //    let zoom = Math.abs(area.top_left - area.getWest()) / width;
 //    let zoom_y = Math.abs(area.getNorth() - area.getSouth()) / height_px;
     let px_width = Math.abs(area.top_left.long - area.bottom_right.long) / width;
     let px_height = Math.abs(area.top_left.lat - area.bottom_right.lat) / height_px;
+
+    let vectors = [];
+
     for (let y_idx = 0; y_idx < height_px; y_idx++) {
         let y = area.bottom_right.lat + px_height * y_idx;
         let row = [];
         let xrow = [];
         for (let x_idx = 0; x_idx < width; x_idx++) {
             let x = area.top_left.long + px_width * x_idx;
-            row.push(data[x_idx + y_idx * width].temp);
+            let dat = data[x_idx + y_idx * width];
+            row.push(dat.temp);
+
+            let vx = (dat.wind_x / 255) * (viewport_width / 80.0);
+            let vy = (dat.wind_y / 255) * (viewport_width / 80.0);
+
+            vectors.push([[y, x], [y - vy, x - vx]]);
+
             xrow.push([y, x]);
         }
         array.push(row);
         location.push(xrow);
+    }
+
+    for (let p of vectors) {
+        let P = L.polygon(p, { color: "#338833", weight: 3.0 });
+        P.addTo(map);
+        Polygons.push(P);
     }
 
     for (let v = 0; v < 127; v += 255 / 10) {
