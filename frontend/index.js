@@ -19,25 +19,26 @@ function getCurrentCtrlMode() {
             if(mode[item] == true) {
                 switch (item) {
                     case "ctrl_clouds":
-                        currentCtrlMode ="Humidify";
+                        currentCtrlMode = ModificationType.Humudify;
                         break;
                     case "ctrl_heat":
-                        currentCtrlMode ="Heat";
+                        currentCtrlMode = ModificationType.Heat;
                         break;
                     case "ctrl_wind":
-                        currentCtrlMode ="Wind";
+                        currentCtrlMode = ModificationType.Wind;
                         break;
                 }
             } else {
                 switch (item) {
                     case "ctrl_clouds":
-                        currentCtrlMode ="Dehumidify";
+                        currentCtrlMode = ModificationType.Dehumidify;
                         break;
                     case "ctrl_heat":
-                        currentCtrlMode ="Cool";
+                        currentCtrlMode = ModificationType.Cool;
                         break;
                     case "ctrl_wind":
-                        currentCtrlMode ="Still";
+                        // NOT A THING
+                        currentCtrlMode = ModificationType.Still;
                         break;
                 }
             }
@@ -160,23 +161,9 @@ function update_map(data, width, area) {
     let array = [];
     let location = [];
 
-    console.log("AAAAAA");
-    console.log(area.top_left.lat, area.top_left.long);
-    console.log(area.bottom_right.lat, area.bottom_right.long);
-    console.log("width = ", Math.abs(area.top_left.long - area.bottom_right.long));
-    console.log("height = ", Math.abs(area.top_left.lat - area.bottom_right.lat));
-    console.log("aspect ratio = ", Math.abs(area.top_left.lat - area.bottom_right.lat) / Math.abs(area.top_left.long - area.bottom_right.long));
-
-    console.log("image width = ", width);
-
-    //let Zoomlist = [20,16,9,6,4,1.5,1,0.5,0.2,0.1,0.05,0.03,0.02,0.01,0.005];
-    //let zoom=Zoomlist[map.getZoom()];
     let bounds = map.getBounds();
     let viewport_width = Math.abs(bounds.getEast() - bounds.getWest());
     let height_px = data.length / width;
-    console.log("image height = ", height_px);
-//    let zoom = Math.abs(area.top_left - area.getWest()) / width;
-//    let zoom_y = Math.abs(area.getNorth() - area.getSouth()) / height_px;
     let px_width = Math.abs(area.top_left.long - area.bottom_right.long) / width;
     let px_height = Math.abs(area.top_left.lat - area.bottom_right.lat) / height_px;
 
@@ -258,8 +245,13 @@ window.addEventListener('DOMContentLoaded', function () {
                 for (const coord of coords){
                     points.push(latlong(coord.lat, coord.lng));
                 }
+
+                let bounds = map.getBounds();
+                let viewport_width = Math.abs(bounds.getEast() - bounds.getWest());
+                let size = map.getSize();
+                let degreesPerPixel = viewport_width / (size.getSize().x)
                 
-                do_changes(points, laser_width, curCtrlMode);
+                do_changes(points, laser_width * degreesPerPixel, curCtrlMode);
             }
         }
     })
