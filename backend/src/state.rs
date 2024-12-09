@@ -63,11 +63,15 @@ impl State {
     }
 
     /// Saves the current map state as an 8-bit RGBA image.
-    pub async fn save_state_to_image<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let image_data = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
+    pub fn get_state_clone(&self) -> Vec<u8> {
+        self.buffer.clone()
+    }
+
+    pub fn save_raw_to_image<P: AsRef<Path>>(raw_state: Vec<u8>, path: P) -> Result<()> {
+        let image_data = image::ImageBuffer::<image::Rgba<u8>, Vec<u8>>::from_raw(
             MAP_WIDTH.try_into()?,
             MAP_HEIGHT.try_into()?,
-            &self.buffer,
+            raw_state,
         )
         .ok_or_else(|| anyhow!("couldn't convert state to image"))?;
         image_data.save(path.as_ref()).map_err(Into::into)

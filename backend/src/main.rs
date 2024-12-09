@@ -1,31 +1,61 @@
-use futures::SinkExt;
+use flexbuffers::Reader;
+use futures::{SinkExt, StreamExt};
 use log::{debug, error};
+use serde::Deserialize;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use warp::ws::{self, WebSocket};
 use warp::Filter;
 
+mod message;
 mod state;
 
-fn start_syncing(websocket: ws::Ws, address: Option<SocketAddr>) -> impl warp::Reply {
-    debug!("incoming websocket connection from {address:?}");
+struct GlobalState {
+    map: state::State,
+    viewport: Option<message::Rect>,
+    client: Option<futures::stream::SplitSink<WebSocket, ws::Message>>,
+}
 
-    websocket.on_upgrade(|mut actual_ws: WebSocket| async {
-        tokio::spawn(async {
-            let mut interval = tokio::time::interval(Duration::from_secs(1));
+fn start_syncing(
+    websocket: ws::Ws,
+    state_shard: Arc<Mutex<GlobalState>>,
+    modification_sink: tokio::sync::mpsc::Sender<message::Packet>,
+) -> impl warp::Reply {
+    websocket.on_upgrade(move |actual_ws: WebSocket| async move {
+        // split websocket into stream and sink ends
+        let (sink, mut stream) = actual_ws.split();
 
-            loop {
-                interval.tick().await;
-                if let Err(e) = actual_ws
-                    .send(ws::Message::text("consider yourself synced"))
-                    .await
-                {
-                    error!("websocket sending failed: {e:?}");
-                    break;
+        // add sink to global state to send updates to
+        {
+            let mut locked_state = state_shard.lock().await;
+            locked_state.client = Some(sink);
+        }
+
+        // task to process incoming messages
+        tokio::spawn(async move {
+            while let Some(message) = stream.next().await {
+                let message = message.expect("couldn't receive message from websocket");
+                let packet = message.into_bytes();
+
+                let message_reader = Reader::get_root(packet.as_slice())
+                    .expect("couldn't construct flexbuffer reader for packet body");
+                let payload = message::Packet::deserialize(message_reader)
+                    .expect("couldn't deserialize packet from websocket message");
+
+                match payload {
+                    message::Packet::Snapshot { .. } => panic!("client shouldn't send snapshots"),
+                    modif @ message::Packet::Modification { .. } => modification_sink
+                        .send(modif)
+                        .await
+                        .expect("couldn't send modification to sink"),
+                    message::Packet::Viewport { area, .. } => {
+                        let mut locked_state = state_shard.lock().await;
+                        locked_state.viewport = Some(area);
+                    }
                 }
             }
-
-            actual_ws.close().await.expect("error closing ws");
         });
     })
 }
@@ -34,14 +64,77 @@ fn start_syncing(websocket: ws::Ws, address: Option<SocketAddr>) -> impl warp::R
 async fn main() {
     env_logger::init();
 
-    // TODO: warp's log filter?
+    let (mod_sender, mut mod_queue) = tokio::sync::mpsc::channel(50);
+    let global_state = GlobalState {
+        map: state::State::load_from_image("images/just-noise.png")
+            .await
+            .expect("couldn't load state image"),
+        viewport: None,
+        client: None,
+    };
+    let global_state = Arc::new(Mutex::new(global_state));
+
+    // yay lifetimes and ownershpi
+    let global_state_modification = global_state.clone();
+    let global_state_ticking = global_state.clone();
+    let global_state_saving = global_state.clone();
+    let global_state_clone_wsroute = global_state.clone();
+
+    // spawn task to apply modifications
+    tokio::spawn(async move {
+        while let Some(_modif @ message::Packet::Modification { .. }) = mod_queue.recv().await {
+            // TODO: apply modification to state
+            // global_state_clone.method();
+            let _ = global_state_modification;
+        }
+    });
+
+    // also spawn task to step internal state every half second
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_millis(500));
+
+        loop {
+            interval.tick().await;
+
+            {
+                let mut locked_state = global_state_ticking.lock().await;
+
+                locked_state
+                    .map
+                    .tick_state_by_count(1)
+                    .await
+                    .expect("couldn't tick state");
+            }
+        }
+    });
+
+    // *also* spawn task to save state to file every 10 seconds
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
+
+        loop {
+            interval.tick().await;
+
+            let state_data = {
+                let locked_state = global_state_saving.lock().await;
+                locked_state.map.get_state_clone()
+            };
+
+            state::State::save_raw_to_image(state_data, "state.png")
+                .expect("couldn't save state image");
+        }
+    });
+
     // TODO: read from frontend/just serve actual files
     let index_route = warp::path::end().map(|| "index");
     let about_route = warp::path("about").and(warp::path::end()).map(|| "about");
     let ws_route = warp::path("sync")
+        .and(warp::path::end())
         .and(warp::ws())
-        .and(warp::addr::remote())
-        .map(start_syncing);
+        .map(move |ws: warp::ws::Ws| {
+            let state_clone = global_state_clone_wsroute.clone();
+            start_syncing(ws, state_clone, mod_sender.clone())
+        });
 
     let all_filters = index_route.or(about_route).or(ws_route);
 
@@ -51,24 +144,3 @@ async fn main() {
         .expect("invalid socket addr");
     warp::serve(all_filters).run(bind_address).await
 }
-
-/*
-#[tokio::main]
-async fn main() {
-    let mut state = state::State::load_from_image("images/noise-userinput2.png")
-        .await
-        .expect("couldn't create state");
-
-    println!("post state load");
-    state
-        .tick_state_by_count(1000)
-        .await
-        .expect("couldn't tick state");
-
-    println!("saving");
-    state
-        .save_state_to_image("images/userinput.png")
-        .await
-        .expect("couldn't save image");
-}
-*/
