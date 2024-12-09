@@ -20,7 +20,9 @@ var source_texture: texture_2d<f32>;
 @fragment
 fn fs_main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> {
     let surrounding = load_surrounding(in_position);
-    let dispersed = gaussian(surrounding);
+
+    // Gaussian dispersal
+    let dispersed = gaussian(in_position);
 
     // temp -> wind (divergence or smth)
     let temp_effects = temperature_on_wind(surrounding);
@@ -29,8 +31,7 @@ fn fs_main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> 
     let wind_effects = wind_on_others(surrounding);
 
     // result -> average of individual effects
-    return dispersed + temp_effects + wind_effects;
-    // return dispersed + temp_effects;
+    return dispersed + temp_effects + wind_effects/3;
 }
 
 /// Loads all of the surrounding texels in a 3x3 grid around a given texel.
@@ -51,25 +52,54 @@ fn load_surrounding(center: vec4<f32>) -> array<vec4<f32>, 9> {
     return surrounding;
 }
 
-/// Computes the 3x3 Gaussian around a single texel.
-fn gaussian(surrounding_grid: array<vec4<f32>, 9>) -> vec4<f32> {
+/// Computes the 5x5 Gaussian around a single texel.
+fn gaussian(center: vec4f) -> vec4f {
     /// Gaussian coefficients, based on Pascal's triangle
     // let gaussian_coeffs = array<f32, 9>(
     //     0.08, 0.16, 0.08,
     //     0.16, 0.04, 0.16,
     //     0.08, 0.16, 0.08
     // );
-    let gaussian_coeffs = array<f32, 9>(
-        0.04, 0.08, 0.04,
-        0.08, 0.52, 0.08,
-        0.04, 0.08, 0.04
+    let gaussian_coeffs = array<f32, 25>(
+        0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625,
+        0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
+        0.0234375, 0.09375, 0.140625, 0.09375, 0.0234375,
+        0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
+        0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625
     );
+    // let gaussian_coeffs = array<f32, 25>(
+    //     0.002, 0.008, 0.012, 0.008, 0.002,
+    //     0.008, 0.035, 0.073, 0.035, 0.008,
+    //     0.012, 0.073, 0.425, 0.073, 0.035,
+    //     0.008, 0.035, 0.073, 0.035, 0.008,
+    //     0.002, 0.008, 0.012, 0.008, 0.002,
+    // );
+
+    // let gaussian_coeffs = array<f32, 25>(
+    //     0, 0, 0, 0, 0,
+    //     0, 0.04, 0.08, 0.04, 0,
+    //     0, 0.08, 0.52, 0.08, 0,
+    //     0, 0.04, 0.08, 0.04, 0,
+    //     0, 0, 0, 0, 0
+    // );
+
+    var surrounding: array<vec4f, 25>;
+    for (var i: i32 = 0; i < 25; i++){
+        var offset_x = i32(center.x) + (i % 5) - 1;
+        var offset_y = i32(center.y) + (i / 5) - 1;
+
+        surrounding[i] = textureLoad(source_texture, vec2<i32>(
+                (offset_x + MAP_WIDTH) % MAP_WIDTH,
+                (offset_y + MAP_HEIGHT) % MAP_HEIGHT,
+            ),
+        0);
+    }
 
     var result = vec4<f32>(0);
 
     // convolve or smth
-    for (var i: i32 = 0; i < 9; i++) {
-        result += gaussian_coeffs[i] * surrounding_grid[i];
+    for (var i: i32 = 0; i < 25; i++) {
+        result += gaussian_coeffs[i] * surrounding[i];
     }
 
     return result;
@@ -159,6 +189,7 @@ fn wind_on_others(surrounding_grid: array<vec4f, 9>) -> vec4f {
         result += surrounding_grid[i] * coeffs[i];
     }
 
+    result.r = 0.0;
     result.g = 0.0;
     result.b = 0.0;
 
