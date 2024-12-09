@@ -121,6 +121,7 @@ window.addEventListener('DOMContentLoaded', function () {
         for (coord of coords){
             console.log(coord)
         }
+        //send coords of drawing
     }
     })
     
@@ -148,11 +149,13 @@ window.addEventListener('DOMContentLoaded', function () {
         let location=[];
         let Zoomlist=[20,16,9,6,4,1.5,1,0.5,0.2,0.1,0.05,0.03,0.02,0.01,0.005];
         let zoom=Zoomlist[map.getZoom()];
+        //send page stuff
         for (let y = map.getCenter().lng-20*zoom; y < 20*zoom+map.getCenter().lng; y+=zoom) {
             let row = [];
             let xrow = [];
             for (let x = map.getCenter().lat-10*zoom; x < 12*zoom+map.getCenter().lat; x+=zoom) {
                 row.push(Math.sin(x) * Math.cos(y)+0.5*Math.sin(100*x) * Math.cos(100*y));
+                //get value (prolly outside of loop)
                 xrow.push([x,y]);
             }
             array.push(row);
