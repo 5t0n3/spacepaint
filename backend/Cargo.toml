@@ -5,7 +5,15 @@ edition = "2021"
 
 [dependencies]
 warp = "0.3"
-tokio = { version = "1", features = ["time", "fs", "rt-multi-thread", "macros"] }
+tokio = { version = "1", features = [
+    "time",
+    "sync",
+    "rt-multi-thread",
+    "macros",
+] }
 log = "0.4"
 env_logger = "0.11"
 futures = "0.3"
+wgpu = "23.0.1"
+image = "0.25"
+anyhow = "1.0"

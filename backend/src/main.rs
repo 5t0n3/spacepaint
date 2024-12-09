@@ -5,6 +5,8 @@ use std::time::Duration;
 use warp::ws::{self, WebSocket};
 use warp::Filter;
 
+mod state;
+
 fn start_syncing(websocket: ws::Ws, address: Option<SocketAddr>) -> impl warp::Reply {
     debug!("incoming websocket connection from {address:?}");
 
@@ -49,3 +51,24 @@ async fn main() {
         .expect("invalid socket addr");
     warp::serve(all_filters).run(bind_address).await
 }
+
+/*
+#[tokio::main]
+async fn main() {
+    let mut state = state::State::load_from_image("images/noise-userinput2.png")
+        .await
+        .expect("couldn't create state");
+
+    println!("post state load");
+    state
+        .tick_state_by_count(1000)
+        .await
+        .expect("couldn't tick state");
+
+    println!("saving");
+    state
+        .save_state_to_image("images/userinput.png")
+        .await
+        .expect("couldn't save image");
+}
+*/
