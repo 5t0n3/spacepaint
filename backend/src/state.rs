@@ -107,7 +107,7 @@ impl State {
         log::debug!("{x}, {y} -> {br_x}, {br_y}");
         let cropped = image.crop_imm(x, y, br_x - x, br_y - y);
 
-        let scaled = cropped.resize(22, 40, image::imageops::FilterType::CatmullRom);
+        let scaled = cropped.resize_exact(22, 40, image::imageops::FilterType::CatmullRom);
 
         let mut output_cursor = Cursor::new(Vec::new());
         scaled.write_to(&mut output_cursor, image::ImageFormat::Png)?;

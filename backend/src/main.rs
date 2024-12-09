@@ -135,11 +135,13 @@ async fn main() -> anyhow::Result<()> {
                         .expect("couldn't serialize snapshot packet");
 
                     if let Some(client_ws) = locked_state.client.as_mut() {
-                        client_ws
-                            .send(ws::Message::binary(serializer.view()))
-                            .await
-                            .expect("couldn't send message to client websocket");
-                        debug!("Sent ticked state to client");
+                        match client_ws.send(ws::Message::binary(serializer.view())).await {
+                            Ok(()) => debug!("Sent ticked state to client"),
+                            Err(e) => {
+                                warn!("Error sending ticked snapshot to client: {e}");
+                                locked_state.client.take();
+                            }
+                        }
                     }
                 }
             }
