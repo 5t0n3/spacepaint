@@ -93,8 +93,12 @@ function marchingSquares(field, threshold, location, zoom, zoom_y) {
 
             for (let p of new_polygons) {
                 for (let point of p) {
-                    point[0] += location[y][x][0];
-                    point[1] += location[y][x][1];
+                    let px = location[y][x][1] + point[0];
+                    let py = location[y][x][0] - point[1];
+                    point[0] = py;
+                    point[1] = px;
+                    //point[0] += location[y][x][0];
+                    //point[1] += location[y][x][1];
                 }
             }
 
@@ -146,7 +150,7 @@ function update_map(data, width, area) {
     let vectors = [];
 
     for (let y_idx = 0; y_idx < height_px; y_idx++) {
-        let y = area.bottom_right.lat + px_height * y_idx;
+        let y = area.top_left.lat - px_height * y_idx;
         let row = [];
         let xrow = [];
         for (let x_idx = 0; x_idx < width; x_idx++) {
@@ -157,7 +161,7 @@ function update_map(data, width, area) {
             let vx = (dat.wind_x / 255) * (viewport_width / 80.0);
             let vy = (dat.wind_y / 255) * (viewport_width / 80.0);
 
-            vectors.push([[y, x], [y - vy, x - vx]]);
+            vectors.push([[y, x], [y + vy, x - vx]]);
 
             xrow.push([y, x]);
         }
@@ -173,7 +177,7 @@ function update_map(data, width, area) {
 
     for (let v = 0; v < 127; v += 255 / 10) {
         //console.log(Polygons)
-        polygons = marchingSquares(array, v, location, px_height, px_width);
+        polygons = marchingSquares(array, v, location, px_width, px_height);
         for (let p of polygons) {
             let P = L.polygon(p, { color: "#0000ff", fillOpacity: 0.1, stroke: false });
             P.addTo(map);
@@ -183,7 +187,7 @@ function update_map(data, width, area) {
     }
     for (let v = 128; v < 255; v += 255 / 10) {
         //console.log(Polygons)
-        polygons = marchingSquares(array, v, location, px_height, px_width);
+        polygons = marchingSquares(array, v, location, px_width, px_height);
         for (let p of polygons) {
             let P = L.polygon(p, { color: "#ff0000", fillOpacity: 0.1, stroke: false });
             P.addTo(map);
