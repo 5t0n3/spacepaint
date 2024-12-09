@@ -16,18 +16,21 @@ macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
-#[wasm_bindgen(getter_with_clone)]
+//#[wasm_bindgen(getter_with_clone)]
+#[wasm_bindgen]
 #[derive(Clone, Copy)]
 pub struct Pixel {
-    temp: u8,
-    haze: u8,
-    wind: (u8, u8),
+    pub temp: u8,
+    pub haze: u8,
+    pub wind_x: u8,
+    pub wind_y: u8
 }
 
 #[wasm_bindgen]
 extern "C" {
     fn alert(s: &str);
 
+    #[wasm_bindgen(js_namespace = document)]
     fn update_map(data: Vec<Pixel>, width: u32, area: Rect);
 
     #[wasm_bindgen(js_namespace = console)]
@@ -102,14 +105,16 @@ pub enum ModificationType {
 #[derive(Serialize, Deserialize)]
 pub struct PNGFile(pub Vec<u8>);
 
-#[wasm_bindgen(getter_with_clone)]
+//#[wasm_bindgen(getter_with_clone)]
+#[wasm_bindgen]
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct LatLong {
     pub lat: f64,
     pub long: f64,
 }
 
-#[wasm_bindgen(getter_with_clone)]
+//#[wasm_bindgen(getter_with_clone)]
+#[wasm_bindgen]
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct Rect {
     pub top_left: LatLong,
@@ -141,7 +146,10 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
     match p {
         Packet::Snapshot { data, location } => {
             console_log!("got snapshot, {} bytes", data.0.len());
-            let img = ImageReader::new(Cursor::new(data.0)).decode().ok()?;
+            let img = match ImageReader::with_format(Cursor::new(data.0), image::ImageFormat::Png).decode() {
+                Ok(v) => v,
+                Err(e) => { console_log!("error: {e:?}"); return None }
+            };
             console_log!("decoded");
             if img.color() != ColorType::Rgba8 || img.width() * img.height() > 8192 {
                 console_log!("bad size or color depth");
@@ -156,11 +164,12 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
                 .map(|x| Pixel {
                     temp: x.0[0],
                     haze: x.0[3],
-                    wind: (x.0[1], x.0[2]),
+                    wind_x: x.0[1],
+                    wind_y: x.0[2]
                 })
                 .collect();
 
-            console_log!("calling update_map");
+            console_log!("calling update_map im dimensions = {} {}", im.width(), im.height());
             update_map(out, im.width(), location);
         }
         // other packet types are ignored by the client
