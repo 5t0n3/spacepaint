@@ -67,7 +67,7 @@ a {
   }
   .modal-dialog {
     width: auto;
-    max-width: 600px;
+    max-width: 60%;
     min-width: 350px;
     min-height: 300px;
     margin: 40px auto;
@@ -130,5 +130,18 @@ a {
   .about-element h3 {
     margin: 0;
     font-size: 24px;
+  }
+
+  #space-laser-img-container {
+    text-align: center;
+  }
+
+  #space-laser-img {
+    width: 60%;
+    border-radius: 5px;
+  }
+
+  #space-laser-img-container figcaption {
+    font-size: 17px;
   }
 

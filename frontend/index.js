@@ -1,14 +1,49 @@
 import init, { Rect, LatLong, Pixel, update_viewport, do_changes, rect, latlong } from "./png-decoder/pkg/png_decoder.js";
 
-var map = {};
-var mode = {"ctrl_clouds": null, "ctrl_heat": null, "ctrl_wind": null};
-var mode_view = {"view_clouds": true, "view_heat": true, "view_wind": true}
-var laser_width = 60;
+let map = {};
+let mode = {"ctrl_clouds": null, "ctrl_heat": null, "ctrl_wind": null};
+let mode_view = {"view_clouds": true, "view_heat": true, "view_wind": true}
+let laser_width = 60;
 let objects = [];
 
 function toggleAboutModal() {
     document.getElementById("modal-backdrop").classList.toggle('hidden');
     document.getElementById("about-modal").classList.toggle('hidden');
+}
+window.toggleAboutModal = toggleAboutModal;
+
+function getCurrentCtrlMode() {
+    var currentCtrlMode = null;
+    for(const item in mode) {
+        if (mode[item] !== null) {
+            if(mode[item] == true) {
+                switch (item) {
+                    case "ctrl_clouds":
+                        currentCtrlMode ="Humidify";
+                        break;
+                    case "ctrl_heat":
+                        currentCtrlMode ="Heat";
+                        break;
+                    case "ctrl_wind":
+                        currentCtrlMode ="Wind";
+                        break;
+                }
+            } else {
+                switch (item) {
+                    case "ctrl_clouds":
+                        currentCtrlMode ="Dehumidify";
+                        break;
+                    case "ctrl_heat":
+                        currentCtrlMode ="Cool";
+                        break;
+                    case "ctrl_wind":
+                        currentCtrlMode ="Still";
+                        break;
+                }
+            }
+        }
+    }
+    return currentCtrlMode;
 }
 
 function nonZero(inp) {
@@ -111,8 +146,6 @@ function marchingSquares(field, threshold, location, zoom, zoom_y) {
     return polygons;
 }
 
-var bar;
-
 //indexed "yx"
 let polygons=[]
 let Polygons=[]
@@ -213,26 +246,37 @@ window.addEventListener('DOMContentLoaded', function () {
     var myPolyline;
     
     map.on('click', function() {
-        paintMode = !paintMode;
-          if (paintMode) {
-              myPolyline = L.polyline([]).addTo(map);
-          } else {
-              myPolyline.remove(map)
-              let coords = myPolyline.getLatLngs()
-              let points = [];
-              for (let coord of coords){
-                  points.push(latlong(coord.lat, coord.lng));
-              }
-
-              do_changes(points, brush_size, mode);
+        let curCtrlMode = getCurrentCtrlMode();
+        if (curCtrlMode !== null) {
+            paintMode = !paintMode;
+            if (paintMode) {
+                myPolyline = L.polyline([]).addTo(map);
+            } else {
+                myPolyline.remove(map)
+                let coords = myPolyline.getLatLngs()
+                let points = [];
+                for (const coord of coords){
+                    points.push(latlong(coord.lat, coord.lng));
+                }
+                
+                do_changes(points, laser_width, curCtrlMode);
+            }
         }
     })
     
     map.on('mousemove', function(e) {
+        let laser_color = "#fff";
+        for (const item in mode) {
+            if (mode[item] === true) {
+                laser_color = "#37ff37";
+            } else if(mode[item] === false) {
+                laser_color = "#ff3737";
+            }                
+        }
         if (paintMode) {
           myPolyline.addLatLng(e.latlng);
           myPolyline.setStyle({
-            color: "#fff",
+            color: laser_color,
             weight: laser_width,
             opacity: 0.8
             }),"styles";
@@ -269,7 +313,7 @@ window.addEventListener('DOMContentLoaded', function () {
     // Toggles the view mode of a button and displays enable vs disabled colors
     function toggleMode_view(mode_var, mode_type, className) {
         mode_var[mode_type] = !mode_var[mode_type];
-        button_html = document.getElementsByClassName(className)[0];
+        let button_html = document.getElementsByClassName(className)[0];
         if(mode_var[mode_type]){
             button_html.setAttribute("style", "background-color: #3737ff;");
         } else {
@@ -297,7 +341,7 @@ window.addEventListener('DOMContentLoaded', function () {
             }
         }
         for(const item in mode_var) {
-            button_html = document.getElementsByClassName(item)[0];
+            let button_html = document.getElementsByClassName(item)[0];
             if(mode[item] === true){
                 button_html.setAttribute("style", "background-color: #37ff37;");
             } else if (mode[item] === false) {
@@ -311,7 +355,7 @@ window.addEventListener('DOMContentLoaded', function () {
 
     // Toggles display of the sub tool bar
     function toggleSubBar(subActionClass) {
-        subBarHTML = document.getElementsByClassName(subActionClass)[0].parentElement.parentElement;
+        let subBarHTML = document.getElementsByClassName(subActionClass)[0].parentElement.parentElement;
         subBarHTML.classList.toggle("hidden");
     }
 
@@ -350,23 +394,23 @@ window.addEventListener('DOMContentLoaded', function () {
     }).addTo(map);
 
     // Initialize sub tool bars as hidden
-    ctrlSubBarHTML = document.getElementsByClassName('ctrl_clouds')[0].parentElement.parentElement;
+    let ctrlSubBarHTML = document.getElementsByClassName('ctrl_clouds')[0].parentElement.parentElement;
     ctrlSubBarHTML.classList.toggle("hidden");
-    viewSubBarHTML = document.getElementsByClassName('view_clouds')[0].parentElement.parentElement;
+    let viewSubBarHTML = document.getElementsByClassName('view_clouds')[0].parentElement.parentElement;
     viewSubBarHTML.classList.toggle("hidden");
-    sliderSubBarHTML = document.getElementsByClassName('ctrl_slider')[0].parentElement.parentElement;
+    let sliderSubBarHTML = document.getElementsByClassName('ctrl_slider')[0].parentElement.parentElement;
     sliderSubBarHTML.classList.toggle("hidden");
 
     // Initialize display of view state
     for (const item of ["view_clouds", "view_heat", "view_wind"]) {
         if(mode_view[item]) {
-            subBarButton_html = document.getElementsByClassName(item)[0];
+            let subBarButton_html = document.getElementsByClassName(item)[0];
             subBarButton_html.setAttribute("style", "background-color: #3737ff;");
         }
     }
     // Initialize display of enable state
     for (const item in mode) {
-        subBarButton_html = document.getElementsByClassName(item)[0];
+        let subBarButton_html = document.getElementsByClassName(item)[0];
         if(mode[item] === true){
             subBarButton_html.setAttribute("style", "background-color: #37ff37;");
         } else if (mode[item] === false) {
