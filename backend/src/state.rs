@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::{io::Cursor, path::Path};
 
-use crate::message::ModificationType;
+use crate::message::{LatLong, ModificationType, Rect};
 
 mod processing;
 
@@ -92,7 +92,7 @@ impl State {
     /// Renders the current state to the provided rectangle/view.
     ///
     /// Currently just samples the state but eventually will average over regions.
-    pub fn render_cropped_state(&self, section: super::message::Rect) -> Result<Vec<u8>> {
+    pub fn render_cropped_state(&self, section: super::message::Rect) -> Result<(Vec<u8>, Rect)> {
         let state = self.get_state_clone();
         let image_data = image::ImageBuffer::<image::Rgba<u8>, Vec<u8>>::from_raw(
             MAP_WIDTH.try_into()?,
@@ -114,6 +114,11 @@ impl State {
         log::debug!("{x}, {y} -> {br_x}, {br_y}");
         let cropped = image.crop_imm(x, y, br_x - x, br_y - y);
 
+        let rect = Rect {
+            top_left: pixel_coords_to_latlong(x, y),
+            bottom_right: pixel_coords_to_latlong(br_x, br_y)
+        };
+
         let scaled = cropped.resize_exact(40, 22, image::imageops::FilterType::Gaussian);
 
         // scaled.save("debug.png")?;
@@ -121,7 +126,7 @@ impl State {
         let mut output_cursor = Cursor::new(Vec::new());
         scaled.write_to(&mut output_cursor, image::ImageFormat::Png)?;
 
-        Ok(output_cursor.into_inner())
+        Ok((output_cursor.into_inner(), rect))
     }
 
     pub fn process_modification(&mut self, mod_packet: crate::message::Packet) -> Result<()> {
@@ -170,7 +175,7 @@ impl State {
     }
 }
 
-fn latlong_to_pixel_coords(latlong: crate::message::LatLong) -> (u32, u32) {
+fn latlong_to_pixel_coords(latlong: LatLong) -> (u32, u32) {
     let x = ((latlong.long + 180.) / 360.) * MAP_WIDTH as f64;
     let y = ((latlong.lat + 90.) / 180.) * MAP_HEIGHT as f64;
 
@@ -178,6 +183,13 @@ fn latlong_to_pixel_coords(latlong: crate::message::LatLong) -> (u32, u32) {
         (x as u32).clamp(0, MAP_WIDTH as u32 - 1),
         (MAP_HEIGHT as u32 - y as u32).clamp(0, MAP_HEIGHT as u32 - 1),
     )
+}
+
+fn pixel_coords_to_latlong(x: u32, y: u32) -> LatLong {
+    let lat = ((MAP_HEIGHT as u32 - y) as f64 / MAP_HEIGHT as f64) * 180.0 - 90.0;
+    let long = (x as f64 / MAP_WIDTH as f64) * 360.0 - 180.0;
+
+    LatLong { lat, long }
 }
 
 #[repr(usize)]

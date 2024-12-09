@@ -172,8 +172,8 @@ async fn main() -> anyhow::Result<()> {
                             .expect("couldn't render cropped state");
 
                         let packet = message::Packet::Snapshot {
-                            data: message::PNGFile(snapshot_png),
-                            location: rect,
+                            data: message::PNGFile(snapshot_png.0),
+                            location: snapshot_png.1,
                         };
                         let packet_data = message::serialize_packet(packet)
                             .expect("couldn't serialize snapshot packet");
