@@ -55,7 +55,7 @@ fn send_packet(p: Packet) {
 
 #[derive(Serialize, Deserialize)]
 pub enum ModificationType {
-    Heat, Cool, Humidify, Dehumidify
+    Heat, Cool, Humidify, Dehumidify, Wind
 }
 
 #[derive(Serialize, Deserialize)]
