@@ -10,6 +10,7 @@ function toggleAboutModal() {
     document.getElementById("modal-backdrop").classList.toggle('hidden');
     document.getElementById("about-modal").classList.toggle('hidden');
 }
+window.toggleAboutModal = toggleAboutModal;
 
 function getCurrentCtrlMode() {
     var currentCtrlMode = null;

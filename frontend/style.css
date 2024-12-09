@@ -132,3 +132,16 @@ a {
     font-size: 24px;
   }
 
+  #space-laser-img-container {
+    text-align: center;
+  }
+
+  #space-laser-img {
+    width: 60%;
+    border-radius: 5px;
+  }
+
+  #space-laser-img-container figcaption {
+    font-size: 17px;
+  }
+
