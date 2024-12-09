@@ -120,10 +120,14 @@ fn start_syncing(
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    // TODO: load from state.png instead
+    let state = match state::State::load_from_image("state.png").await {
+        Ok(v) => v,
+        Err(_) => state::State::load_from_image("images/just-noise.png").await.unwrap()
+    };
+
     let (mod_sender, mut mod_queue) = tokio::sync::mpsc::channel(50);
     let global_state = GlobalState {
-        map: state::State::load_from_image("images/just-noise.png").await?,
+        map: state,
         clients: HashMap::new(),
     };
     let global_state = Arc::new(Mutex::new(global_state));
