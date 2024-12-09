@@ -12,7 +12,7 @@ macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(getter_with_clone)]
 #[derive(Clone, Copy)]
 pub struct Pixel {
     temp: u8,
@@ -37,13 +37,23 @@ pub fn greet() {
 static CLIENT_ID: OnceLock<u64> = OnceLock::new();
 
 #[wasm_bindgen]
-pub fn do_changes(points: Vec<Pixel>, width_degrees: f64) {
-    todo!()
+pub fn do_changes(points: Vec<LatLong>, brush_size_degrees: f64, mode: ModificationType) {
+    send_packet(Packet::Modification { tpe: mode, points, brush_size_degrees, client_id: *CLIENT_ID.get().unwrap() })
 }
 
 #[wasm_bindgen]
 pub fn update_viewport(rect: Rect) {
     send_packet(Packet::Viewport { area: rect, client_id: *CLIENT_ID.get().unwrap() })
+}
+
+#[wasm_bindgen]
+pub fn latlong(lat: f64, long: f64) -> LatLong {
+    LatLong { lat, long }
+}
+
+#[wasm_bindgen]
+pub fn rect(tl_lat: f64, tl_long: f64, br_lat: f64, br_long: f64) -> Rect {
+    Rect { top_left: LatLong { lat: tl_lat, long: tl_long }, bottom_right: LatLong { lat: br_lat, long: br_long } }
 }
 
 fn send_packet(p: Packet) {
@@ -52,7 +62,7 @@ fn send_packet(p: Packet) {
     SOCK.lock().unwrap().clone().unwrap().sock.send_with_u8_array(s.view()).unwrap();
 }
 
-
+#[wasm_bindgen(getter_with_clone)]
 #[derive(Serialize, Deserialize)]
 pub enum ModificationType {
     Heat, Cool, Humidify, Dehumidify, Wind
@@ -61,14 +71,14 @@ pub enum ModificationType {
 #[derive(Serialize, Deserialize)]
 pub struct PNGFile(pub Vec<u8>);
 
-#[wasm_bindgen]
+#[wasm_bindgen(getter_with_clone)]
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct LatLong {
     pub lat: f64,
     pub long: f64
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(getter_with_clone)]
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Rect {
     pub top_left: LatLong,
@@ -78,7 +88,7 @@ pub struct Rect {
 #[derive(Serialize, Deserialize)]
 pub enum Packet {
     Snapshot { data: PNGFile, location: Rect },
-    Modification { tpe: ModificationType, points: Vec<LatLong>, brush_size_degrees: f64, location: Rect, client_id: u64 },
+    Modification { tpe: ModificationType, points: Vec<LatLong>, brush_size_degrees: f64, client_id: u64 },
     Viewport { area: Rect, client_id: u64 }
 }
 
@@ -100,7 +110,12 @@ fn handle_packet(pack: Vec<u8>) -> Option<()> {
             update_map(out, im.width(), location);
         }
         // other packet types are ignored by the client
-        _ => {}
+        Packet::Viewport { area, client_id } => {
+            console_log!("ignoring viewport packet")
+        }
+        _ => {
+            console_log!("ignoring other packet")
+        }
     }
 
     Some(())

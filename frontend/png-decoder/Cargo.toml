@@ -8,6 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 flexbuffers = "2.0.0"
+getrandom = { version = "0.2.15", features = ["js"] }
 image = "0.25.5"
 rand = "0.8.5"
 serde = { version = "1.0.215", features = ["derive"] }
