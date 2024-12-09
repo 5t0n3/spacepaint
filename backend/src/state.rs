@@ -105,9 +105,11 @@ impl State {
         let (x, y) = latlong_to_pixel_coords(top_left);
         let (br_x, br_y) = latlong_to_pixel_coords(bottom_right);
         log::debug!("{x}, {y} -> {br_x}, {br_y}");
-        let cropped = image.crop_imm(x, y, br_x - x, br_y - y);
+        let cropped = image.crop_imm(x, MAP_HEIGHT as u32 - br_y, br_x - x, y - br_y);
 
         let scaled = cropped.resize_exact(40, 22, image::imageops::FilterType::CatmullRom);
+
+        // scaled.save("debug.png")?;
 
         let mut output_cursor = Cursor::new(Vec::new());
         scaled.write_to(&mut output_cursor, image::ImageFormat::Png)?;
