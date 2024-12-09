@@ -119,7 +119,11 @@ impl State {
             bottom_right: pixel_coords_to_latlong(br_x, br_y)
         };
 
-        let scaled = cropped.resize_exact(40, 22, image::imageops::FilterType::Gaussian);
+        let total_pixels = 40 * 22;
+        let c = (rect.top_left.long - rect.bottom_right.long).abs() / (rect.top_left.lat - rect.bottom_right.lat).abs();
+        let h = ((total_pixels as f64) / c).sqrt().round() as u32;
+        let w = (((total_pixels as f64) / c).sqrt() * c).round() as u32;
+        let scaled = cropped.resize_exact(w, h, image::imageops::FilterType::Gaussian);
 
         // scaled.save("debug.png")?;
 
