@@ -15,7 +15,7 @@ log = "0.4"
 env_logger = "0.11"
 futures = "0.3"
 wgpu = "23.0.1"
-image = { version = "0.25", features = ["png"] }
+image = "0.25"
 anyhow = "1.0"
 serde = { version = "1.0.215", features = ["derive"] }
 flexbuffers = "2.0.0"
