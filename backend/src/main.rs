@@ -64,52 +64,56 @@ fn start_syncing(
         // task to process incoming messages
         tokio::spawn(async move {
             while let Some(message) = stream.next().await {
-                let message = message.expect("couldn't receive message from websocket");
-                let packet = message.as_bytes();
+                match message {
+                    Ok(message) => {
+                        let packet = message.as_bytes();
 
-                if message.is_binary() {
-                    let message_reader = Reader::get_root(packet)
-                        .expect("couldn't construct flexbuffer reader for packet body");
-                    let payload = message::Packet::deserialize(message_reader)
-                        .expect("couldn't deserialize packet from websocket message");
+                        if message.is_binary() {
+                            let message_reader = Reader::get_root(packet)
+                                .expect("couldn't construct flexbuffer reader for packet body");
+                            let payload = message::Packet::deserialize(message_reader)
+                                .expect("couldn't deserialize packet from websocket message");
 
-                    match payload {
-                        message::Packet::Snapshot { .. } | message::Packet::AssignId { .. } => {
-                            warn!("received server-only packet from client, this shouldn't happen");
-                        }
-                        modif @ message::Packet::Modification { .. } => {
-                            modification_sink
-                                .send(modif)
-                                .await
-                                .expect("couldn't send modification to sink");
-                            debug!("Received modification packet");
-                        }
-                        message::Packet::Viewport { area, client_id } => {
-                            let mut locked_state = state_shard.lock().await;
-
-                            match locked_state.clients.get_mut(&client_id) {
-                                Some(client) => {
-                                    client.viewport = Some(area);
-                                    debug!("Updated viewport to {area:?}");
+                            match payload {
+                                message::Packet::Snapshot { .. } | message::Packet::AssignId { .. } => {
+                                    warn!("received server-only packet from client, this shouldn't happen");
                                 }
-                                None => warn!(
-                                    "received viewport packet from nonexistent client {client_id}"
-                                ),
+                                modif @ message::Packet::Modification { .. } => {
+                                    modification_sink
+                                        .send(modif)
+                                        .await
+                                        .expect("couldn't send modification to sink");
+                                    debug!("Received modification packet");
+                                }
+                                message::Packet::Viewport { area, client_id } => {
+                                    let mut locked_state = state_shard.lock().await;
+
+                                    match locked_state.clients.get_mut(&client_id) {
+                                        Some(client) => {
+                                            client.viewport = Some(area);
+                                            debug!("Updated viewport to {area:?}");
+                                        }
+                                        None => warn!(
+                                            "received viewport packet from nonexistent client {client_id}"
+                                        ),
+                                    }
+                                }
                             }
-                        }
-                    }
-                } else if message.is_close() {
-                    // closing message: unregister viewport/client from global state
-                    {
-                        let mut locked_state = state_shard.lock().await;
-                        if locked_state.clients.remove(&client_id).is_none() {
-                            warn!("Tried to remove nonexistent client {client_id} on connection close");
+                        } else if message.is_close() {
+                            // closing message: unregister viewport/client from global state
+                            {
+                                let mut locked_state = state_shard.lock().await;
+                                if locked_state.clients.remove(&client_id).is_none() {
+                                    warn!("Tried to remove nonexistent client {client_id} on connection close");
+                                } else {
+                                    info!("Client disconnected - viewport/websocket cleared");
+                                }
+                            }
                         } else {
-                            info!("Client disconnected - viewport/websocket cleared");
+                            warn!("unexpected message type with data {packet:?}");
                         }
                     }
-                } else {
-                    warn!("unexpected message type with data {packet:?}");
+                    Err(e) => warn!("error receiving message: {e}")
                 }
             }
         });
@@ -122,7 +126,9 @@ async fn main() -> anyhow::Result<()> {
 
     let state = match state::State::load_from_image("state.png").await {
         Ok(v) => v,
-        Err(_) => state::State::load_from_image("images/just-noise.png").await.unwrap()
+        Err(_) => state::State::load_from_image("images/just-noise.png")
+            .await
+            .unwrap(),
     };
 
     let (mod_sender, mut mod_queue) = tokio::sync::mpsc::channel(50);
